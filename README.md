@@ -8,7 +8,7 @@
 ## Data Collection
 ###### DNA methylation data will be downloaded from the database below. Will be primarily using dataset from Gene Expression Omnibus and some dataset may not be used. 
 - ###### **Gene Expression Omnibus**:  [GEO](https://www.ncbi.nlm.nih.gov/geo/)
-  - ###### **GSE40279**:  [GSE40279](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE40279)
+  - ###### **GSE40279**:  [GSE40279](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE40279) will be using this dataset.
   - ###### **GSE87571**:  [GSE87571](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE87571)
   - ###### **GSE55763**:  [GSE55763](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE55763)
   - ###### **GSE167998**:  [GSE167998](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE167998)
@@ -26,7 +26,7 @@
 ###### Using multivariate linear model based on the Elastic Net algorithm.
 
 ## Test Plan
-###### Divide GSE40279 samples into two groups, one for training the model and one for testing the model.
+###### GSE40279 has 656 samples. The article that developed the model used 482 samples for training the model and 174 for testing the model. However, I have not found how they did sampling. I would randomly select 482 samples for training the model and 174 for testing the model. 
 
 ## Reference
 ###### Rutledge J, Oh H, Wyss-Coray T. 2022. Measuring biological age using omics data. Nat Rev Genet. 23(12):715–727. doi:10.1038/s41576-022-00511-7.
