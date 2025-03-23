@@ -1,0 +1,194 @@
+---
+title: "Untitled"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+# import libraries
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(glmnet)
+library(ggplot2)
+library(GEOquery)
+library(Biobase)
+```
+
+# Prepare data
+## Query and parse data from GEO
+```{r}
+gse40279 <- getGEO(GEO = "GSE40279", destdir = "data", GSEMatrix = TRUE, parseCharacteristics = TRUE)
+```
+
+## Extract data
+```{r}
+eset40279 <- gse40279[[1]]
+pheno40279 <- pData(eset40279)
+feature40279 <- fData(eset40279)
+expr40279 <- exprs(eset40279)
+```
+
+## Save for future use 
+```{r}
+write.csv(pheno40279, file = "data/pheno40279")
+# write.csv(feature40279, file = "data/feature40279")
+write.csv(expr40279, file = "data/expr40279")
+```
+
+## Extract relavent features
+```{r}
+coldata <- pheno40279 %>%
+  select(c("geo_accession", "age (y):ch1", "ethnicity:ch1", "gender:ch1")) %>%
+  rename(
+    sample_id = geo_accession,
+    age = `age (y):ch1`,
+    ethnicity = `ethnicity:ch1`,
+    gender = `gender:ch1`
+  ) %>%
+  mutate(age = as.numeric(age))
+head(coldata, n = 10)
+```
+
+## View data
+```{r}
+expr40279 <- t(expr40279)
+expr40279 <- as.data.frame(expr40279)
+head(expr40279, n = 10)
+```
+
+## merge selected feature with methylation data
+```{r}
+expr40279$sample_id <- rownames(expr40279)
+expr40279 <- expr40279 %>%
+  relocate(sample_id, .before = 1)
+merged40279 <- inner_join(coldata, expr40279, by = "sample_id")
+head(merged40279, n = 10)
+```
+
+## visualize data
+### distribution by age
+```{r}
+ggplot(data = merged40279, mapping = aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "black", color = "white") +
+  labs(title = "Distribution of Age",
+       x = "Age (years)",
+       y = "Count (# of sample)") +
+  scale_x_continuous(breaks = seq(20, 100, by = 20)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 20)) +
+  theme_minimal()
+```
+
+### perform PCA
+```{r}
+pca40279_res <- prcomp(merged40279[, -(1:4)], center = TRUE, scale. = TRUE)
+summary(pca40279_res)
+pca40279_pc1_pc2 <- as.data.frame(pca40279_res$x[, 1:2])
+pca40279_pc1_pc2 <- bind_cols(pca40279_pc1_pc2, merged40279[, c("sample_id","age", "ethnicity", "gender")])
+```
+
+### plot PCA
+```{r}
+ggplot(pca40279_pc1_pc2, aes(x = PC1, y = PC2, color = age)) +
+  geom_point(size = 2, alpha = 0.8) +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(title = "PCA of Methylation Data by Age") +
+  theme_minimal()
+```
+
+
+
+## split data into training 75% and testing sets 25%
+```{r}
+set.seed(123)
+# First, define age bins (quartiles or custom)
+merged40279 <- merged40279 %>%
+  mutate(age_bin = ntile(age, 4))  # split age into 4 quantile bins
+
+# Check how many samples per group
+table(merged40279$age_bin, merged40279$gender)
+
+train_data <- merged40279 %>%
+  group_by(age_bin, gender) %>%
+  sample_frac(0.75)
+
+# Remaining 25% go to test set
+test_data <- anti_join(merged40279, train_data, by = "sample_id")
+```
+
+```{r}
+# Check age distribution
+summary(train_data$age)
+summary(test_data$age)
+
+# Check gender balance
+table(train_data$gender)
+table(test_data$gender)
+```
+
+
+# Fit model
+## apply Elastic Net algorithm in R package glmnet (have those CpGs contribute less to prediction excluded by have their coefficients to or close to zero, thus reduce the number of variable)
+```{r}
+
+```
+
+## 10-fold crossvalidation to optimize regularization parameters
+```{r}
+
+```
+
+## bootstrap 500 times, build model for each bootstrap
+```{r}
+
+```
+
+## markers presented in more than half of all bootstraps were included in the final model
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
