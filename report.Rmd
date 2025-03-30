@@ -5,81 +5,110 @@ date: "`r Sys.Date()`"
 ---
 
 ```{r setup, include=FALSE}
-# import libraries
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(caret)
 library(glmnet)
 library(ggplot2)
 library(GEOquery)
 library(Biobase)
 ```
 
+```{r setup-parallel, include=FALSE}
+library(doParallel)
+registerDoParallel(cores = 7)
+```
+
+<!-- ### check parallel workers: -->
+<!-- ```{r} -->
+<!-- cat("Registered", getDoParWorkers(), "parallel workers\n") -->
+<!-- system.time({ -->
+<!--   foreach(i = 1:7) %dopar% { -->
+<!--     Sys.sleep(2) -->
+<!--   } -->
+<!-- }) -->
+<!-- ``` -->
+<!-- ### serial execution -->
+<!-- ```{r} -->
+<!-- system.time({ -->
+<!--   for (i in 1:7) { -->
+<!--     Sys.sleep(2) -->
+<!--   } -->
+<!-- }) -->
+<!-- ``` -->
+
+
 # Prepare data
-## Query and parse data from GEO
-```{r}
-gse40279 <- getGEO(GEO = "GSE40279", destdir = "data", GSEMatrix = TRUE, parseCharacteristics = TRUE)
-```
+<!-- ## Query and parse data from GEO -->
+<!-- ```{r} -->
+<!-- gse40279 <- getGEO(GEO = "GSE40279", destdir = "data", GSEMatrix = TRUE, parseCharacteristics = TRUE) -->
+<!-- ``` -->
 
-## Extract data
-```{r}
-eset40279 <- gse40279[[1]]
-pheno40279 <- pData(eset40279)
-feature40279 <- fData(eset40279)
-expr40279 <- exprs(eset40279)
-```
+<!-- ## Extract data -->
+<!-- ```{r} -->
+<!-- eset40279 <- gse40279[[1]] -->
+<!-- pheno40279 <- pData(eset40279) -->
+<!-- feature40279 <- fData(eset40279) -->
+<!-- expr40279 <- exprs(eset40279) -->
+<!-- ``` -->
 
-## Save for future use 
-```{r}
-write.csv(pheno40279, file = "data/pheno40279")
-# write.csv(feature40279, file = "data/feature40279")
-write.csv(expr40279, file = "data/expr40279")
-```
+<!-- ## Save for future use  -->
+<!-- ```{r} -->
+<!-- write.csv(pheno40279, file = "data/pheno40279") -->
+<!-- # write.csv(feature40279, file = "data/feature40279") -->
+<!-- write.csv(expr40279, file = "data/expr40279") -->
+<!-- ``` -->
 
-## Load data
-```{r}
-pheno40279 <- read.csv("data/pheno40279", row.names = 1)
-expr40279 <- read.csv("data/expr40279", row.names = 1)
-```
+<!-- ## Load data -->
+<!-- ```{r} -->
+<!-- pheno40279 <- read.csv("data/pheno40279", row.names = 1) -->
+<!-- expr40279 <- read.csv("data/expr40279", row.names = 1) -->
+<!-- ``` -->
 
-## View data
-```{r}
-head(pheno40279, n = 10)
-head(expr40279, n = 10)
-```
+<!-- ## View data -->
+<!-- ```{r} -->
+<!-- head(pheno40279, n = 10) -->
+<!-- head(expr40279, n = 10) -->
+<!-- ``` -->
 
-## Extract relavent features
-```{r}
-coldata <- pheno40279 %>%
-  select(c("geo_accession", "age..y..ch1", "ethnicity.ch1", "gender.ch1")) %>%
-  rename(
-    sample_id = geo_accession,
-    age = `age..y..ch1`,
-    ethnicity = `ethnicity.ch1`,
-    gender = `gender.ch1`
-  ) %>%
-  mutate(age = as.numeric(age))
-head(coldata, n = 10)
-```
+<!-- ## Extract relavent features -->
+<!-- ```{r} -->
+<!-- coldata <- pheno40279 %>% -->
+<!--   select(c("geo_accession", "age..y..ch1", "ethnicity.ch1", "gender.ch1")) %>% -->
+<!--   rename( -->
+<!--     sample_id = geo_accession, -->
+<!--     age = `age..y..ch1`, -->
+<!--     ethnicity = `ethnicity.ch1`, -->
+<!--     gender = `gender.ch1` -->
+<!--   ) %>% -->
+<!--   mutate(age = as.numeric(age)) -->
+<!-- head(coldata, n = 10) -->
+<!-- ``` -->
 
-## transpose mythlation data
-```{r}
-expr40279_t_mtx <- t(expr40279)
-expr40279_t_df <- as.data.frame(expr40279_t_mtx)
-head(expr40279_t_df, n = 10)
-```
+<!-- ## transpose mythlation data -->
+<!-- ```{r} -->
+<!-- expr40279_t_mtx <- t(expr40279) -->
+<!-- expr40279_t_df <- as.data.frame(expr40279_t_mtx) -->
+<!-- head(expr40279_t_df, n = 10) -->
+<!-- ``` -->
 
-## merge selected feature with methylation data
-```{r}
-expr40279_t_df$sample_id <- rownames(expr40279_t_df)
-expr40279_t_df <- expr40279_t_df %>%
-  relocate(sample_id, .before = 1)
-merged40279 <- inner_join(coldata, expr40279_t_df, by = "sample_id")
-head(merged40279, n = 10)
-```
+<!-- ## merge selected feature with methylation data -->
+<!-- ```{r} -->
+<!-- expr40279_t_df$sample_id <- rownames(expr40279_t_df) -->
+<!-- expr40279_t_df <- expr40279_t_df %>% -->
+<!--   relocate(sample_id, .before = 1) -->
+<!-- merged40279 <- inner_join(coldata, expr40279_t_df, by = "sample_id") -->
+<!-- head(merged40279, n = 10) -->
+<!-- ``` -->
 
-## Save for future use 
-```{r}
-write.csv(merged40279, file = "data/merged40279")
+<!-- ## Save for future use  -->
+<!-- ```{r} -->
+<!-- write.csv(merged40279, file = "data/merged40279") -->
+<!-- ``` -->
+
+## Load merged40279
+```{r eval=FALSE}
+merged40279 <- read.csv("data/merged40279", row.names = 1)
 ```
 
 ## visualize data
@@ -95,26 +124,26 @@ ggplot(data = merged40279, mapping = aes(x = age)) +
   theme_minimal()
 ```
 
-### perform PCA
-```{r}
-pca40279_res <- prcomp(merged40279[, -(1:4)], center = TRUE, scale. = TRUE)
-summary(pca40279_res)
-pca40279_pc1_pc2 <- as.data.frame(pca40279_res$x[, 1:2])
-pca40279_pc1_pc2 <- bind_cols(pca40279_pc1_pc2, merged40279[, c("sample_id","age", "ethnicity", "gender")])
-```
+<!-- ### perform PCA -->
+<!-- ```{r} -->
+<!-- pca40279_res <- prcomp(merged40279[, -(1:4)], center = TRUE, scale. = TRUE) -->
+<!-- summary(pca40279_res) -->
+<!-- pca40279_pc1_pc2 <- as.data.frame(pca40279_res$x[, 1:2]) -->
+<!-- pca40279_pc1_pc2 <- bind_cols(pca40279_pc1_pc2, merged40279[, c("sample_id","age", "ethnicity", "gender")]) -->
+<!-- ``` -->
 
-### plot PCA
-```{r}
-ggplot(pca40279_pc1_pc2, aes(x = PC1, y = PC2, color = age)) +
-  geom_point(size = 2, alpha = 0.8) +
-  scale_color_gradient(low = "blue", high = "red") +
-  labs(title = "PCA of Methylation Data by Age") +
-  theme_minimal()
-```
+<!-- ### plot PCA -->
+<!-- ```{r} -->
+<!-- ggplot(pca40279_pc1_pc2, aes(x = PC1, y = PC2, color = age)) + -->
+<!--   geom_point(size = 2, alpha = 0.8) + -->
+<!--   scale_color_gradient(low = "blue", high = "red") + -->
+<!--   labs(title = "PCA of Methylation Data by Age") + -->
+<!--   theme_minimal() -->
+<!-- ``` -->
 
 
 ## split data into training 75% and testing sets 25%
-```{r}
+```{r eval=FALSE}
 set.seed(123)
 # First, define age bins (quartiles or custom)
 merged40279 <- merged40279 %>%
@@ -129,7 +158,15 @@ train_data <- merged40279 %>%
 
 # Remaining 25% go to test set
 test_data <- anti_join(merged40279, train_data, by = "sample_id")
+
+train_data <- train_data %>%
+  ungroup() %>%
+  select(-age_bin)
+test_data <- test_data %>%
+  select(-age_bin)
+
 ```
+
 
 ```{r}
 # Check age distribution
@@ -142,82 +179,171 @@ table(test_data$gender)
 ```
 
 
-# Fit model
-## apply Elastic Net algorithm in R package glmnet (have those CpGs contribute less to prediction excluded by have their coefficients to or close to zero, thus reduce the number of variable)
-```{r}
-# Remove low-variance CpGs from training set
-X_train_raw <- train_data[, -(1:6)]
-cpg_sd <- apply(X_train_raw, 2, sd)
-X_train_filtered <- X_train_raw[, cpg_sd > 0.02]  # Keep only variable CpGs
+<!-- ## Feature with near zero variance -->
+<!-- ```{r} -->
+<!-- X_train_raw <- train_data[, -(1:4)] -->
+<!-- nzv.cpg <- nearZeroVar(X_train_raw, saveMetrics= TRUE, names=TRUE, freqCut = 85/15, uniqueCut = 50) -->
+<!-- ``` -->
 
-# Scale the data
-X_train <- scale(X_train_filtered)
+<!-- ## visualize feature with near zero variance -->
+<!-- ```{r} -->
+<!-- boxplot(nzv.cpg$percentUnique) -->
+<!-- boxplot(nzv.cpg$freqRatio) -->
+<!-- ``` -->
+
+<!-- ## exclude features with near zero variance -->
+<!-- ```{r} -->
+<!-- nzv.cpg.list <- which(nzv.cpg$nzv == TRUE)  -->
+<!-- X_train_filtered <- X_train_raw[, -nzv.cpg.list]  -->
+<!-- dim(X_train_filtered) -->
+<!-- ``` -->
+## Prepare input data for glmnet
+```{r}
+X_train_df <- train_data[, -(1:4)]
+X_train_mtx <- as.matrix(X_train_df)
 y_train <- train_data$age
 ```
 
+
+# Fit model
+## apply Elastic Net algorithm in R package glmnet (have those CpGs contribute less to prediction excluded by have their coefficients to or close to zero, thus reduce the number of variable)
 ## 10-fold crossvalidation to optimize regularization parameters
-```{r}
+```{r eval=FALSE}
 set.seed(123)
-cv_fit <- cv.glmnet(X_train, y_train, alpha = 0.5, nfolds = 10)
-best_lambda <- cv_fit$lambda.min
+cv_model <- cv.glmnet(
+  x = X_train_mtx,
+  y = y_train,
+  alpha = 0.5, # Elastic Net (mix of Lasso and Ridge regression)
+  nfolds = 10,
+  family = "gaussian",
+  parallel = TRUE,
+  standardize = TRUE
+)
 ```
 
-## bootstrap 500 times, build model for each bootstrap
-```{r}
-set.seed(123)
-n_boot <- 500
-n_samples <- nrow(X_train)
-selected_cpgs <- matrix(0, nrow = ncol(X_train), ncol = n_boot)
-rownames(selected_cpgs) <- colnames(X_train)
 
-for (i in 1:n_boot) {
-  boot_index <- sample(1:n_samples, size = n_samples, replace = TRUE)
-  x_boot <- X_train[boot_index, ]
-  y_boot <- y_train[boot_index]
+```{r}
+best_lambda <- cv_model$lambda.min # the amount of shrinkage
+cat("Optimal lambda:", best_lambda, "\n")
+```
+
+```{r}
+plot(cv_model)
+```
+
+
+## bootstrap 500 times, build model for each bootstrap
+```{r eval=FALSE}
+library(foreach)
+
+set.seed(123)
+n_bootstrap <- 500
+
+# run parallel, evaluate the foreach obeject by the r expression 
+bootstrap_results <- foreach(i = 1:n_bootstrap, .combine = rbind, .packages = "glmnet") %dopar% {
+  # random sampling with replacement
+  boot_indices <- sample(1:nrow(X_train_mtx), replace = TRUE) 
+  X_boot <- X_train_mtx[boot_indices, ]
+  y_boot <- y_train[boot_indices] 
   
-  model <- glmnet(x_boot, y_boot, alpha = 0.5, lambda = best_lambda)
-  coefs <- coef(model)[-1]  # remove intercept
-  selected <- which(coefs != 0)
-  selected_cpgs[selected, i] <- 1
+  # fit model
+  model_boot <- glmnet(X_boot, y_boot, alpha = 0.5, lambda = best_lambda, standardize = TRUE)
+  
+  # select feature (non-zero coefficients)
+  coef_boot <- coef(model_boot)
+  nonzero_cpgs <- rownames(coef_boot)[which(coef_boot != 0)] 
+  nonzero_cpgs <- nonzero_cpgs[nonzero_cpgs != "(Intercept)"]
+  
+  # store non-zero features and which bootstrap iteration the feature comes frm
+  data.frame(CpG = nonzero_cpgs, Bootstrap = i)
 }
 ```
 
-## markers presented in more than half of all bootstraps were included in the final model
+## features presented in more than half of all bootstraps were included in the final model
 ```{r}
-selection_freq <- rowSums(selected_cpgs)
-final_cpgs <- names(selection_freq[selection_freq > (n_boot / 2)])
+cpg_summary <- bootstrap_results %>%
+  group_by(CpG) %>%
+  summarize(Freq = n()) %>% # how many times each feature appears in bootstraps
+  mutate(FreqRatio = Freq / n_bootstrap) %>% # how often each feature appears in bootstraps
+  arrange(desc(FreqRatio))
+
+selected_cpgs <- cpg_summary %>%
+  filter(FreqRatio > 0.5) %>%
+  pull(CpG)
+
+cat("Number of CpGs appearing in >50% bootstraps:", length(selected_cpgs), "\n")
+
 ```
 
-## 
+
+## prepare train data
 ```{r}
-x_train_final <- x_train_scaled[, final_cpgs]
-final_model <- glmnet(x_train_final, y_train, alpha = 0.5, lambda = best_lambda)
+X_train_final <- X_train_mtx[, selected_cpgs]
+# scale training data 
+X_train_scaled <- scale(X_train_final)
+
+# Save training means and sds
+train_mean <- attr(X_train_scaled, "scaled:center")
+train_sd <- attr(X_train_scaled, "scaled:scale")
 ```
 
-
-## 
+## train final model with optimal lambda and selected features
 ```{r}
-# Prepare test set with same selected CpGs and scaling
-x_test <- scale(test_data[, final_cpgs],
-                center = attr(x_train_scaled, "scaled:center")[final_cpgs],
-                scale = attr(x_train_scaled, "scaled:scale")[final_cpgs])
+final_model <- glmnet(X_train_scaled, y_train, alpha = 0.5, lambda = best_lambda, standardize = FALSE)
+```
+
+## prepare test data
+```{r}
+X_test_df <- test_data[, selected_cpgs]
+X_test_scaled <- scale(X_test_df, center = train_mean, scale = train_sd)
+X_test_mtx <- as.matrix(X_test_scaled)
 y_test <- test_data$age
+```
 
-# Predict and evaluate
-pred_age <- predict(final_model, newx = x_test, s = best_lambda)
-correlation <- cor(pred_age, y_test)
-mae <- mean(abs(pred_age - y_test))
+## predict age in test set
+```{r}
+y_pred <- predict(final_model, newx = X_test_mtx, s = best_lambda)
+```
 
-cat("Correlation (R):", round(correlation, 3), "\n")
-cat("MAE:", round(mae, 3), "years\n")
+## evaluate model performance
+```{r}
+y_pred <- as.numeric(y_pred)
+results_df <- data.frame(
+  Sample = rownames(X_test_df),
+  Actual_Age = y_test,
+  Predicted_Age = y_pred
+)
 ```
 
 
 ```{r}
-coef_df <- as.data.frame(as.matrix(coef(final_model)))
-coef_df <- coef_df[coef_df$s1 != 0, , drop = FALSE]
-coef_df <- tibble(CpG = rownames(coef_df), Coefficient = coef_df$s1)
-print(coef_df)
+# Residual Sum of Squares: how far off the predicted values are from the actual values
+rss <- sum((y_pred - y_test)^2) 
+# Total Sum of Squares: how far off the actual values are from the mean
+tss <- sum((y_test - mean(y_test))^2) 
+# coefficient of determination: how much of the variance in the data is explained by the model
+r_squared <- 1 - rss/tss 
+# Root Mean Squared Error: average of the square root of the difference between the predicted and actual values
+rmse <- sqrt(mean((y_pred - y_test)^2))
+
+cat("Test R²:", round(r_squared, 3), "\n")
+cat("Test RMSE:", round(rmse, 3), "\n")
+```
+
+```{r}
+ggplot(results_df, aes(x = Actual_Age, y = Predicted_Age)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Predicted vs Actual Age (Test Set)",
+       x = "Actual Age (years)",
+       y = "Predicted Age (years)") +
+  annotate("text", x = min(y_test), y = max(y_test), 
+           label = paste0("R² = ", round(r_squared, 3), 
+                          "\nRMSE = ", round(rmse, 2)),
+           hjust = 0, vjust = 1, size = 4) +
+  scale_x_continuous(limits = c(0, 100)) + 
+  scale_y_continuous(limits = c(0, 100)) + 
+  theme_minimal()
 ```
 
 
@@ -236,6 +362,54 @@ print(coef_df)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r eval=FALSE}
+save(
+  merged40279,
+  cv_model,
+  bootstrap_results,
+  final_model,
+  y_pred,
+  results_df,
+  file = "clock_model_core.RData"
+)
+```
+
+```{r eval=FALSE}
+save(
+  best_lambda,
+  cpg_summary,
+  final_model,
+  y_pred,
+  results_df,
+  r_squared,
+  rmse,
+  file = "core_param_res.RData"
+)
+```
 
 
 
