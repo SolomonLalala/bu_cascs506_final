@@ -8,11 +8,36 @@ date: "`r Sys.Date()`"
 # import libraries
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(caret)
 library(glmnet)
 library(ggplot2)
 library(GEOquery)
 library(Biobase)
 ```
+
+```{r setup-parallel, include=FALSE}
+library(doParallel)
+registerDoParallel(cores = 7)
+```
+
+### check parallel workers:
+```{r}
+cat("Registered", getDoParWorkers(), "parallel workers\n")
+system.time({
+  foreach(i = 1:7) %dopar% {
+    Sys.sleep(2)
+  }
+})
+```
+### serial execution
+```{r}
+system.time({
+  for (i in 1:7) {
+    Sys.sleep(2)
+  }
+})
+```
+
 
 # Prepare data
 ## Query and parse data from GEO
@@ -82,6 +107,11 @@ head(merged40279, n = 10)
 write.csv(merged40279, file = "data/merged40279")
 ```
 
+## Load merged40279
+```{r}
+merged40279 <- read.csv("data/merged40279", row.names = 1)
+```
+
 ## visualize data
 ### distribution by age
 ```{r}
@@ -131,6 +161,7 @@ train_data <- merged40279 %>%
 test_data <- anti_join(merged40279, train_data, by = "sample_id")
 ```
 
+
 ```{r}
 # Check age distribution
 summary(train_data$age)
@@ -142,17 +173,30 @@ table(test_data$gender)
 ```
 
 
+## Feature with near zero variance
+```{r}
+X_train_raw <- train_data[, -(1:4)]
+nzv.cpg <- nearZeroVar(X_train_raw, saveMetrics= TRUE, names=TRUE, freqCut = 85/15, uniqueCut = 50)
+```
+
+## visualize feature with near zero variance
+```{r}
+boxplot(nzv.cpg$percentUnique)
+boxplot(nzv.cpg$freqRatio)
+```
+
+## exclude features with near zero variance
+```{r}
+nzv.cpg.list <- which(nzv_metrics$nzv == TRUE) 
+X_train_filtered <- X_train_raw[, -nzv.cpg.list] 
+dim(X_train_filtered)
+```
+
 # Fit model
 ## apply Elastic Net algorithm in R package glmnet (have those CpGs contribute less to prediction excluded by have their coefficients to or close to zero, thus reduce the number of variable)
-```{r}
-# Remove low-variance CpGs from training set
-X_train_raw <- train_data[, -(1:6)]
-cpg_sd <- apply(X_train_raw, 2, sd)
-X_train_filtered <- X_train_raw[, cpg_sd > 0.02]  # Keep only variable CpGs
 
-# Scale the data
-X_train <- scale(X_train_filtered)
-y_train <- train_data$age
+```{r}
+
 ```
 
 ## 10-fold crossvalidation to optimize regularization parameters
