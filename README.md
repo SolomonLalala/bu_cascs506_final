@@ -50,7 +50,6 @@ I set this to be private and shareed with all staff. Invitees need sign in to th
 
 ## Priliminary Results 
 - ### An elastic net regression model was trained with lambda = 0.4867 and 23 DNA methylation markers. The model predicted the age of individuals with an R-squared of 0.827 and RMSE of 6.04 years.
-- ### 
 
 ## Reference
 ###### Anastasiadi D, Piferrer F. 2023. Bioinformatic analysis for age prediction using epigenetic clocks: Application to fisheries management and conservation biology. Front Mar Sci. 10. doi:10.3389/fmars.2023.1096909.
