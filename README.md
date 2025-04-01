@@ -1,5 +1,6 @@
 # bu_cascs506_final
-
+midterm report video record: https://youtu.be/AajjHc2R3Zk
+I set this to be private and shareed with all staff. Invitees need sign in to their Google Account (bu email) to view the private video.
 
 ## Description
 ###### Aging is complex biological process with decline in physiology and increased vulnerability to diseases. Developing intervention on aging and aging related diseases involves measuring biological age and aging rate at the molecular level. Aging clocks are machine learning models trained with molecular features such as genes or proteins to estimate an individual's age. Epigenetic aging clock build upon DNA methylation pattern that changes with aging. Epigenetic aging clock is robust in predicting age across various tissue types and can measure epigenetic changes shared between aging and many cancers. This project uses existing methods developed by Hannum et al. to train an epigenetic aging clock and aims to predict the age and aging rate of individuals using public available DNA methylation data.
@@ -47,6 +48,9 @@
 - ### Apply final model on the testing set
 - ### Calculate R-squared and RMSE to evaluate the model performance
 
+## Priliminary Results 
+- ### An elastic net regression model was trained with lambda = 0.4867 and 23 DNA methylation markers. The model predicted the age of individuals with an R-squared of 0.827 and RMSE of 6.04 years.
+- ### 
 
 ## Reference
 ###### Anastasiadi D, Piferrer F. 2023. Bioinformatic analysis for age prediction using epigenetic clocks: Application to fisheries management and conservation biology. Front Mar Sci. 10. doi:10.3389/fmars.2023.1096909.
