@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Build an epigenetic clock based on methods and data from Hannum et al"
 output: html_document
 date: "`r Sys.Date()`"
 ---
@@ -10,13 +10,15 @@ library(tidyverse)
 library(caret)
 library(glmnet)
 library(ggplot2)
+library(pheatmap)
 library(GEOquery)
 library(Biobase)
 ```
 
 ```{r setup-parallel, include=FALSE}
 library(doParallel)
-registerDoParallel(cores = 7)
+n_cores <- parallel::detectCores() - 1
+registerDoParallel(cores = n_cores)
 ```
 
 <!-- ### check parallel workers: -->
@@ -112,6 +114,57 @@ merged40279 <- read.csv("data/merged40279", row.names = 1)
 ```
 
 ## visualize data
+```{r}
+meth_data <- expr40279_t_df %>%
+  select(-sample_id)
+ages <- coldata$age
+
+regression_results <- foreach(i = 1:ncol(meth_data), .combine = rbind, .packages = "stats") %dopar% {
+  cpg_values <- meth_data[[i]]
+  fit <- lm(cpg_values ~ ages)
+  summary_fit <- summary(fit)$coefficients
+
+  beta <- summary_fit[2, 1]     # slope (age effect)
+  pval <- summary_fit[2, 4]     # p-value for age coefficient
+
+  c(beta = beta, pval = pval)
+}
+
+cpg_names <- colnames(meth_data)
+
+# Create named vectors
+betas <- regression_results[, "beta"]
+pvals <- regression_results[, "pval"]
+names(betas) <- cpg_names
+names(pvals) <- cpg_names
+
+# Adjust p-values
+fdr <- p.adjust(pvals, method = "fdr")
+
+sig_cpgs <- names(fdr)[fdr < 0.05]
+length(sig_cpgs)
+meth_sig <- meth_data[, sig_cpgs]
+
+# Order CpGs by regression coefficient (effect size)
+ordered_cpgs <- sig_cpgs[order(betas[sig_cpgs], decreasing = TRUE)]
+meth_ordered <- meth_sig[, ordered_cpgs]
+
+meth_centered <- scale(meth_ordered, center = TRUE, scale = FALSE)
+
+age_order <- order(ages)
+meth_final <- meth_centered[age_order, ]
+
+pheatmap(
+  t(meth_final),
+  cluster_rows = FALSE,
+  cluster_cols = FALSE,
+  show_colnames = FALSE,
+  show_rownames = FALSE,
+  color = colorRampPalette(c("blue", "black", "yellow"))(100),
+  main = "Age-Associated CpG Methylation (Centered)"
+)
+```
+
 ### distribution by age
 ```{r}
 ggplot(data = merged40279, mapping = aes(x = age)) +
@@ -231,7 +284,6 @@ cat("Optimal lambda:", best_lambda, "\n")
 plot(cv_model)
 ```
 
-
 ## bootstrap 500 times, build model for each bootstrap
 ```{r eval=FALSE}
 library(foreach)
@@ -346,46 +398,6 @@ ggplot(results_df, aes(x = Actual_Age, y = Predicted_Age)) +
   theme_minimal()
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```{r eval=FALSE}
 save(
   merged40279,
@@ -411,6 +423,9 @@ save(
 )
 ```
 
+```{r reference}
+sessionInfo()
+```
 
 
 
