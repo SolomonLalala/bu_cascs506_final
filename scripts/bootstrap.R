@@ -11,18 +11,26 @@ train_model_bootstrap <- function(
   set.seed(123)
   
   bootstrap_results <- foreach(
-    i = 1:iteration, .combine = rbind, .packages = "glmnet"
-  ) %dopar% {
+    # iterate 500 times, combine results, use glmnet
+    i = 1:iteration, .combine = rbind, .packages = "glmnet" 
+  ) %dopar% { 
+    # expression to evaluate in parallel
+    
+    # random sampling with replacement, same sample size as original train
     boot_indices <- sample(1:nrow(X_train), replace = TRUE)
     X_boot <- X_train[boot_indices, ]
     y_boot <- y_train[boot_indices]
     
+    # fit model to each bootstrap
     model_boot <- glmnet(
       X_boot, y_boot, alpha = alpha, lambda = lambda, standardize = TRUE)
+    
+    # extract features with non-zero coefficients
     coef_boot <- coef(model_boot)
     nonzero_cpgs <- rownames(coef_boot)[which(coef_boot != 0)]
     nonzero_cpgs <- nonzero_cpgs[nonzero_cpgs != "(Intercept)"]
     
+    # create a data frame with the results
     data.frame(CpG = nonzero_cpgs, Bootstrap = i)
   }
   
