@@ -1,6 +1,10 @@
 # import library
-library(GEOquery)
 library(tidyverse)
+library(glmnet)
+library(ggplot2)
+library(GEOquery)
+library(foreach)
+library(doParallel)
 
 # query and parse data from the GEO database
 parse_geo <- function(dest_dir, gse_id, transpose = TRUE, save = TRUE) {
@@ -78,7 +82,40 @@ split_train_test <- function(
 }
 
 
+select_features <- function(bootstrap_results, threshold) {
+  cpg_summary <- bootstrap_results %>%
+    group_by(CpG) %>%
+    summarize(Freq = n()) %>%
+    mutate(FreqRatio = Freq / length(unique(bootstrap_results$Bootstrap))) %>%
+    arrange(desc(FreqRatio))
+  
+  selected_cpgs <- cpg_summary %>%
+    filter(FreqRatio > 0.5) %>%
+    pull(CpG)
+  
+  saveRDS(
+    selected_cpgs, 
+    file = "data/selected_cpgs.rds"
+  )
+  
+  return(selected_cpgs)
+}
 
+train_model <- function(X_train, y_train, alpha, lambda, features) {
+  X_train <- as.matrix(X_train[, features])
+  y_train <- X_train$age
+  
+  X_train_scaled <- scale(X_train)
+  
+  best_lambda <- readRDS("data/cv_model.rds")$lambda.min
+  
+  model <- glmnet(
+    X_train_scaled, 
+    y_train, 
+    alpha = 0.5, 
+    lambda = best_lambda, 
+    standardize = FALSE)
+}
 
 
 
