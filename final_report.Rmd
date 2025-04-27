@@ -94,8 +94,9 @@ saveRDS(model_params, file = file.path(data_dir, "model_params.rds"))
 
 ## Cross-validation
 ```{bash}
-qsub cv.sh
-
+qsub scripts/cv.sh
+# Or run locally
+# Rscript -e "source('scripts/cv.R')"
 ```
 
 ```{r}
@@ -105,11 +106,9 @@ lambda_min <- cv_model$lambda.min
 saveRDS(lambda_min, file = file.path(data_dir, "lambda_min.rds"))
 ```
 
-
-
 ## Bootstrap
 ```{bash}
-qsub bootstrap.sh
+qsub scripts/bootstrap.sh
 ```
 
 ## 
