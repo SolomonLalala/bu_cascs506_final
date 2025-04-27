@@ -1,5 +1,6 @@
 # import library
 library(tidyverse)
+library(knitr)
 library(caret)
 library(glmnet)
 library(ggplot2)
@@ -7,7 +8,12 @@ library(GEOquery)
 library(foreach)
 library(doParallel)
 
-# query and parse data from the GEO database
+#' Parse GEO dataset into expression matrix and phenotype table
+#' @param dest_dir Destination directory to save parsed files
+#' @param gse_id GEO Series ID for the dataset
+#' @param transpose Logical, whether to transpose expression matrix
+#' @param save Logical, whether to save output files
+#' @return A list of expression dataframe and phenotype dataframe
 parse_geo <- function(dest_dir, gse_id, transpose = TRUE, save = TRUE) {
   
   # query geo and get the gse object
@@ -48,6 +54,13 @@ parse_geo <- function(dest_dir, gse_id, transpose = TRUE, save = TRUE) {
 }
 
 
+#' Stratified train-test split
+#' @param dataset Input dataframe
+#' @param train_frac Fraction of data to include in the training set
+#' @param stratifier List of column names for stratification (e.g., age)
+#' @param dest_dir Directory to save output files
+#' @param save Logical, whether to save split datasets
+#' @return A list containing train and test datasets
 split_train_test <- function(
     dataset, train_frac, stratifier, dest_dir, save =TRUE
 ) 
@@ -88,8 +101,13 @@ split_train_test <- function(
   
 }
 
-
-select_feature <- function(bootstrap_results, threshold, dest_dir) {
+#' Select features based on bootstrap frequency threshold
+#' @param bootstrap_results Dataframe of CpGs selected in bootstraps
+#' @param threshold Frequency ratio cutoff (e.g., 0.5)
+#' @param dest_dir Directory to save selected features
+#' @param save Logical, whether to save output
+#' @return A vector of selected CpGs
+select_feature <- function(bootstrap_results, threshold, dest_dir, save = TRUE) {
   feature_summary <- bootstrap_results %>%
     group_by(CpG) %>%
     summarize(Freq = n()) %>% # how many times each feature appears in bootstraps
@@ -117,6 +135,13 @@ select_feature <- function(bootstrap_results, threshold, dest_dir) {
   return(selected_feature)
 }
 
+#' Evaluate model performance on test data
+#' @param model Trained glmnet model
+#' @param X_test Test set dataframe
+#' @param y_test Test set labels
+#' @param dest_dir Directory to save results
+#' @param save Logical, whether to save evaluation metrics
+#' @return A list containing predicted results and evaluation metrics
 evaluate_model <- function(model, X_test, y_test, dest_dir, save = TRUE) {
   
   y_pred <- predict(model, newx = as.matrix(X_test), s = lambda_min)
@@ -167,16 +192,17 @@ evaluate_model <- function(model, X_test, y_test, dest_dir, save = TRUE) {
     )
   }
   
-  # return 
   return(eval_list)
 }
 
 
+#' Plot age distribution histogram
+#' @param data Dataframe with an "age" column
+#' @param dest_dir Directory to save the plot
+#' @param save Logical, whether to save the plot
+#' @return ggplot object
 plot_age_distribution <- function(
     data, dest_dir, save = TRUE){
-  
-  
-  
   # plot
   p_age <- ggplot(data = data, mapping = aes(x = age)) +
     geom_histogram(binwidth = 5, fill = "black", color = "white") +
@@ -206,12 +232,15 @@ plot_age_distribution <- function(
 }
 
 
+#' Plot predicted vs actual age scatter plot
+#' @param results Dataframe with Actual_Age and Predicted_Age
+#' @param metrics List of evaluation metrics (correlation, RMSE et al)
+#' @param dest_dir Directory to save the plot
+#' @param save Logical, whether to save the plot
+#' @return ggplot object
 plot_evaluation <- function(
     results, metrics, dest_dir, save = TRUE
 ){
-  
-  
-  
   r <- metrics$r
   rmse <- metrics$rmse
   

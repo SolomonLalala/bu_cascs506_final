@@ -6,8 +6,6 @@ Author: "Solomon Lalala"
 ---
 
 ```{r setup, include=FALSE}
-library(tidyverse)
-library(knitr)
 source("scripts/helper.R")
 ```
 
@@ -107,7 +105,10 @@ y_train <- train_set$age # prediction target
 X_test <- test_set %>%
   select(-sample_id, -age, -ethnicity, -sex)
 y_test <- test_set$age
+```
 
+
+```{r save splited data}
 saveRDS(X_train, file = file.path(data_dir, "X_train.rds"))
 saveRDS(y_train, file = file.path(data_dir, "y_train.rds"))
 saveRDS(X_test, file = file.path(data_dir, "X_test.rds"))
@@ -122,7 +123,10 @@ preProcValues <- preProcess(as.matrix(X_train), method = c("center", "scale"))
 # Apply the transformation to the data
 X_train_standardized <- predict(preProcValues, as.matrix(X_train))
 X_test_standardized <- predict(preProcValues, as.matrix(X_test))
+```
 
+
+```{r save standardized data}
 # save prepro_values and standardized data
 saveRDS(preProcValues, file = file.path(data_dir, "preProcValues.rds"))
 saveRDS(X_train_standardized, file = file.path(data_dir, "X_train_standardized.rds"))
@@ -160,6 +164,10 @@ qsub scripts/cv.sh
 cv_model <- readRDS(file.path(data_dir, "cv_model.rds"))
 plot(cv_model)
 lambda_min <- cv_model$lambda.min
+ggsave(
+  filename = file.path(fig_dir, "cv_model_lambda.png"),
+  plot = plot(cv_model),
+)
 saveRDS(lambda_min, file = file.path(data_dir, "lambda_min.rds"))
 ```
 
@@ -175,7 +183,8 @@ bootstrap_res <- readRDS(file.path(data_dir, "bootstrap_results.rds"))
 cpgs_selected <- select_feature(
   bootstrap_results = bootstrap_res, 
   threshold = 0.5,
-  dest_dir = data_dir)
+  dest_dir = data_dir,
+  save = TRUE)
 ```
 
 ## Train final model
@@ -214,6 +223,10 @@ plot_eval <- plot_evaluation(
 plot_eval
 ```
 
+# Reference
+```{r session-info}
+sessionInfo()
+```
 
 
 
