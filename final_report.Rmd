@@ -13,6 +13,7 @@ source("scripts/helper.R")
 ```{r parse data from geo}
 # set parameters
 data_dir <- "data"
+fig_dir <- "figures"
 gse_accession <- "GSE40279"
 
 # get data from geo
@@ -156,20 +157,32 @@ final_model <- glmnet(
     type.measure = "mse",
     family = "gaussian",
     standardize = FALSE)
+saveRDS(final_model, file = file.path(data_dir, "final_model.rds"))
 ```
 
 # Evaluate model
 ```{r}
-y_pred <- predict(final_model, newx = as.matrix(X_test), s = lambda_min)
-y_pred <- as.numeric(y_pred)
-results_df <- data.frame(
-  Sample = test_set$sample_id,
-  Actual_Age = y_test,
-  Predicted_Age = y_pred
-)
+evaluation <- evaluate_model(
+  model = final_model, 
+  X_test = X_test_standardized, 
+  y_test = y_test, 
+  dest_dir = data_dir)
+```
+
+```{r}
+# Check evaluation results
+eval_res <- evaluation$results_df
+eval_metrics <- evaluation$metrics
 ```
 
 
+```{r}
+plot_eval <- plot_evaluation(
+  results = eval_res, 
+  metrics = eval_metrics, 
+  dest_dir = fig_dir)
+plot_eval
+```
 
 
 

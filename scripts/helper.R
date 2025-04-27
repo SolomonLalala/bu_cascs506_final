@@ -101,5 +101,101 @@ select_feature <- function(bootstrap_results, threshold, dest_dir) {
   return(selected_feature)
 }
 
+evaluate_model <- function(model, X_test, y_test, dest_dir) {
+  
+  y_pred <- predict(model, newx = as.matrix(X_test), s = lambda_min)
+  y_pred <- as.numeric(y_pred)
+  results_df <- data.frame(
+    Sample = test_set$sample_id,
+    Actual_Age = y_test,
+    Predicted_Age = y_pred
+  )
+  
+  # Residual Sum of Squares: how far off the predicted values are from the actual values
+  rss <- sum((y_test - y_pred)^2) 
+  # Total Sum of Squares: how far off the actual values are from their mean
+  tss <- sum((y_test - mean(y_test))^2) 
+  # coefficient of determination: how much of the variance in the data is explained by the model
+  r_squared <- 1 - rss/tss 
+  # correlation coeffcient: how well the predicted values correlate with the actual values
+  r <- cor(y_test, y_pred)
+  # Root Mean Squared Error: average of the square root of the difference between the predicted and actual values
+  rmse <- sqrt(mean((y_test - y_pred)^2))
+  
+  # wrap the metrics in a list
+  metrics <- list(
+    rss = rss,
+    tss = tss,
+    r_squared = r_squared,
+    r = r,
+    rmse = rmse
+  )
+  
+  # save the results and metrics
+  if (!dir.exists(dest_dir)) {
+    dir.create(dest_dir, recursive = TRUE)
+  }
+  saveRDS(
+    results_df,
+    file.path(dest_dir, "results_df.rds")
+  )
+  saveRDS(
+    metrics,
+    file.path(dest_dir, "evaluation_metrics.rds")
+  )
+  
+  eval_list <- list(
+    results_df = results_df,
+    metrics = metrics
+  )
+  
+  # return 
+  return(eval_list)
+}
+
+plot_evaluation <- function(
+    results, metrics, dest_dir
+){
+  
+  r <- metrics$r
+  rmse <- metrics$rmse
+  
+  # fit_line <- lm(y_pred ~ y_test)
+  # slope_fit <- coef(fit_line)[2]
+  # intercept_fit <- coef(fit_line)[1]
+  
+  p <- ggplot(results, aes(x = Actual_Age, y = Predicted_Age)) +
+    geom_point() +
+    geom_abline(
+      slope = 1, 
+      intercept = 0, 
+      linetype = "dashed", 
+      color = "red") +
+    # geom_abline(
+    #   slope = slope_fit, 
+    #   intercept = intercept_fit, 
+    #   linetype = "solid",
+    #   color = "blue") +
+    labs(title = "Predicted vs Actual Age",
+         x = "Actual Age (years)",
+         y = "Predicted Age (years)") +
+    annotate("text", x = min(y_test), y = max(y_test), 
+             label = paste0("r = ", round(r, 2), 
+                            "\nrmse = ", round(rmse, 2)),
+             hjust = 0, vjust = 1, size = 4) +
+    scale_x_continuous(limits = c(0, 100)) + 
+    scale_y_continuous(limits = c(0, 100)) + 
+    theme_minimal()
+  
+  ggsave(
+    filename = "age_prediction_plot.png",
+    plot = p, 
+    path = dest_dir
+    )
+  
+  return(p)
+}
+
+
 
 
