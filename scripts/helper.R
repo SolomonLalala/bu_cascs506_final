@@ -1,5 +1,6 @@
 # import library
 library(tidyverse)
+library(caret)
 library(glmnet)
 library(ggplot2)
 library(GEOquery)
@@ -73,48 +74,31 @@ split_train_test <- function(
       dir.create(dest_dir, recursive = TRUE)
     }
     
-    write_rds(train_data, file.path(dest_dir, "train_data.rds"))
-    write_rds(test_data, file.path(dest_dir, "test_data.rds"))
+    saveRDS(train_data, file.path(dest_dir, "train_set.rds"))
+    saveRDS(test_data, file.path(dest_dir, "test_set.rds"))
   }
   
   return(list(train_data, test_data))
   
 }
 
-
-select_features <- function(bootstrap_results, threshold) {
-  cpg_summary <- bootstrap_results %>%
+select_feature <- function(bootstrap_results, threshold, dest_dir) {
+  feature_summary <- bootstrap_results %>%
     group_by(CpG) %>%
-    summarize(Freq = n()) %>%
-    mutate(FreqRatio = Freq / length(unique(bootstrap_results$Bootstrap))) %>%
+    summarize(Freq = n()) %>% # how many times each feature appears in bootstraps
+    mutate(FreqRatio = Freq / length(unique(bootstrap_results$Bootstrap))) %>% # how often each feature appears in bootstraps
     arrange(desc(FreqRatio))
   
-  selected_cpgs <- cpg_summary %>%
-    filter(FreqRatio > 0.5) %>%
+  selected_feature <- feature_summary %>%
+    filter(FreqRatio > threshold) %>%
     pull(CpG)
   
   saveRDS(
-    selected_cpgs, 
-    file = "data/selected_cpgs.rds"
+    selected_feature,
+    file.path(dest_dir, "selected_feature.rds")
   )
   
-  return(selected_cpgs)
-}
-
-train_model <- function(X_train, y_train, alpha, lambda, features) {
-  X_train <- as.matrix(X_train[, features])
-  y_train <- X_train$age
-  
-  X_train_scaled <- scale(X_train)
-  
-  best_lambda <- readRDS("data/cv_model.rds")$lambda.min
-  
-  model <- glmnet(
-    X_train_scaled, 
-    y_train, 
-    alpha = 0.5, 
-    lambda = best_lambda, 
-    standardize = FALSE)
+  return(selected_feature)
 }
 
 

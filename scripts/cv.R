@@ -6,6 +6,11 @@ library(tidyverse)
 train_model_cross_validation <- function(
     X_train, y_train, alpha, n_fold, n_cores) {
   
+  if (!is.matrix(X_train)) {
+    cat("X_train is not a matrix. Converting to matrix...\n")
+    X_train <- as.matrix(X_train)
+  }
+  
   registerDoParallel(cores = n_cores)
   
   set.seed(123)
@@ -18,7 +23,7 @@ train_model_cross_validation <- function(
     type.measure = "mse",
     nfolds = n_fold,
     family = "gaussian",
-    standardize = TRUE
+    standardize = FALSE
   )
 
   # save results
@@ -32,7 +37,6 @@ X_train <- readRDS("data/X_train.rds")
 y_train <- readRDS("data/y_train.rds")
 model_params <- readRDS("data/model_params.rds")
 
-X_train <- as.matrix(X_train)
 alpha <- model_params$alpha
 n_cores <- model_params$n_cores
 n_fold <- model_params$n_fold

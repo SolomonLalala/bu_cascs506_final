@@ -21,7 +21,7 @@ data_list <- parse_geo(dest_dir = data_dir, gse_id = gse_accession, transpose = 
 
 # Process data
 ## Extract metadata and merge with methylation data
-```{r process data}
+```{r merge data}
 # extract relevant metadata
 metadata <- data_list[[2]] %>%
   select(
@@ -53,16 +53,7 @@ train_set <- train_test_list[[1]]
 test_set <- train_test_list[[2]]
 ```
 
-
-```{r split data}
-# predictor
-X_train <- train_set %>%
-  select(-sample_id, -age, -ethnicity, -sex)
-# prediction target
-y_train <- train_set$age
-```
-
-## check data distribution
+## check subset data distribution
 ```{r}
 # Check age distribution
 summary(train_set$age)
@@ -73,9 +64,42 @@ table(train_set$sex)
 table(test_set$sex)
 ```
 
+## split data into predictor and target
+```{r split data}
+X_train <- train_set %>%
+  select(-sample_id, -age, -ethnicity, -sex) # predictor
+y_train <- train_set$age # prediction target
+
+X_test <- test_set %>%
+  select(-sample_id, -age, -ethnicity, -sex)
+y_test <- test_set$age
+
+saveRDS(X_train, file = file.path(data_dir, "X_train.rds"))
+saveRDS(y_train, file = file.path(data_dir, "y_train.rds"))
+saveRDS(X_test, file = file.path(data_dir, "X_test.rds"))
+saveRDS(y_test, file = file.path(data_dir, "y_test.rds"))
+```
+
+## standardize data
+```{r center and scale data}
+# obtain mean and sd
+preProcValues <- preProcess(as.matrix(X_train), method = c("center", "scale"))
+
+# Apply the transformation to the data
+X_train_standardized <- predict(preProcValues, as.matrix(X_train))
+X_test_standardized <- predict(preProcValues, as.matrix(X_test))
+
+# save prepro_values
+saveRDS(preProcValues, file = file.path(data_dir, "preProcValues.rds"))
+# save the standardized data
+saveRDS(X_train_standardized, file = file.path(data_dir, "X_train_standardized.rds"))
+saveRDS(X_test_standardized, file = file.path(data_dir, "X_test_standardized.rds"))
+```
+
+
 # Train model
-```{r}
-# set parameters
+## Set parameters
+```{r set parameters}
 alpha = 0.5
 n_cores <- parallel::detectCores() - 1
 n_fold = 10
@@ -86,22 +110,19 @@ model_params <- list(
   n_fold = n_fold,
   iterations = iterations
 )
-```
 
-```{r}
-# save X_train, y_train, and parameters
-saveRDS(X_train, file = file.path(data_dir, "X_train.rds"))
-saveRDS(y_train, file = file.path(data_dir, "y_train.rds"))
 saveRDS(model_params, file = file.path(data_dir, "model_params.rds"))
 ```
 
-## Cross-validation
+## Optimize parameters
+###Cross-validation
 ```{bash}
 qsub scripts/cv.sh
 # Or run locally
 # Rscript -e "source('scripts/cv.R')"
 ```
 
+### Find lambda
 ```{r}
 cv_model <- readRDS(file.path(data_dir, "cv_model.rds"))
 plot(cv_model)
@@ -109,15 +130,44 @@ lambda_min <- cv_model$lambda.min
 saveRDS(lambda_min, file = file.path(data_dir, "lambda_min.rds"))
 ```
 
-## Bootstrap
+## Select feature
+### Bootstrap
 ```{bash}
 qsub scripts/bootstrap.sh
 ```
 
-## 
+### Select CpGs(feature) 
+```{r}
+bootstrap_res <- readRDS(file.path(data_dir, "bootstrap_results.rds"))
+cpgs_selected <- select_feature(
+  bootstrap_results = bootstrap_res, 
+  threshold = 0.5,
+  dest_dir = data_dir)
+```
 
+## Train final model
+```{r}
+set.seed(123)
+final_model <- glmnet(
+    X_train_standardized, 
+    y_train, 
+    alpha = alpha, 
+    lambda = lambda_min, 
+    type.measure = "mse",
+    family = "gaussian",
+    standardize = FALSE)
+```
 
 # Evaluate model
+```{r}
+y_pred <- predict(final_model, newx = as.matrix(X_test), s = lambda_min)
+y_pred <- as.numeric(y_pred)
+results_df <- data.frame(
+  Sample = test_set$sample_id,
+  Actual_Age = y_test,
+  Predicted_Age = y_pred
+)
+```
 
 
 

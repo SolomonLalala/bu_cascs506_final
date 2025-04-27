@@ -11,6 +11,11 @@ handlers("txtprogressbar")
 train_model_bootstrap <- function(
     X_train, y_train, alpha, n_cores, iteration, lambda) {
   
+  if (!is.matrix(X_train)) {
+    cat("X_train is not a matrix. Converting to matrix...\n")
+    X_train <- as.matrix(X_train)
+  }
+  
   registerDoParallel(cores = n_cores)
   
   set.seed(123)
@@ -35,7 +40,7 @@ train_model_bootstrap <- function(
       
       # fit model to each bootstrap
       model_boot <- glmnet(
-        X_boot, y_boot, alpha = alpha, lambda = lambda, standardize = TRUE)
+        X_boot, y_boot, alpha = alpha, lambda = lambda, standardize = FALSE)
       
       # extract features with non-zero coefficients
       coef_boot <- coef(model_boot)
