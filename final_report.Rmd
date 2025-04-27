@@ -48,7 +48,7 @@ merged40279 <- inner_join(expr40279_df, metadata, by = "sample_id")
 saveRDS(merged40279, file = file.path(data_dir, "merged40279.rds"))
 ```
 
-## visualize data
+## visualize full data
 ```{r}
 view_merged40279 <- merged40279 %>%
   select(
@@ -64,13 +64,13 @@ view_merged40279
 knitr::kable(view_merged40279, format = "html", caption = "First 6 samples of merged data")
 ```
 
-
+### view age distribution
 ```{r}
 p_age_merged40279 <- plot_age_distribution(data = merged40279, dest_dir = fig_dir, save = TRUE)
 p_age_merged40279
 ```
 
-
+### view sex distribution
 ```{r}
 table(merged40279$sex)
 ```
@@ -87,22 +87,13 @@ train_set <- train_test_list[[1]]
 test_set <- train_test_list[[2]]
 ```
 
-## check subset data distribution
+### check subset data distribution
 ```{r}
 # Check age distribution
 p_age_train <- plot_age_distribution(data = train_set, dest_dir = fig_dir, save = TRUE)
 p_age_train
-```
-
-
-```{r}
 p_age_test <- plot_age_distribution(data = test_set, dest_dir = fig_dir, save = TRUE)
 p_age_test
-```
-
-
-```{r}
-# Check gender
 table(train_set$sex)
 table(test_set$sex)
 ```
@@ -132,9 +123,8 @@ preProcValues <- preProcess(as.matrix(X_train), method = c("center", "scale"))
 X_train_standardized <- predict(preProcValues, as.matrix(X_train))
 X_test_standardized <- predict(preProcValues, as.matrix(X_test))
 
-# save prepro_values
+# save prepro_values and standardized data
 saveRDS(preProcValues, file = file.path(data_dir, "preProcValues.rds"))
-# save the standardized data
 saveRDS(X_train_standardized, file = file.path(data_dir, "X_train_standardized.rds"))
 saveRDS(X_test_standardized, file = file.path(data_dir, "X_test_standardized.rds"))
 ```
@@ -157,8 +147,8 @@ model_params <- list(
 saveRDS(model_params, file = file.path(data_dir, "model_params.rds"))
 ```
 
-## Optimize parameters
-###Cross-validation
+## Find optimal parameters
+### Cross-validation
 ```{bash}
 qsub scripts/cv.sh
 # Or run locally
@@ -209,14 +199,13 @@ evaluation <- evaluate_model(
   X_test = X_test_standardized, 
   y_test = y_test, 
   dest_dir = data_dir)
-```
 
-```{r}
-# Check evaluation results
 eval_res <- evaluation$results_df
 eval_metrics <- evaluation$metrics
 ```
 
+
+## Visualize evaluation results
 ```{r}
 plot_eval <- plot_evaluation(
   results = eval_res, 
