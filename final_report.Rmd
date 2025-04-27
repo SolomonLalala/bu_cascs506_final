@@ -1,0 +1,132 @@
+---
+title: "Building an epigenetic clock based on methods and data from Hannum et al"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+source("scripts/helper.R")
+```
+
+# Collect data
+```{r parse data from geo}
+# set parameters
+data_dir <- "data"
+gse_accession <- "GSE40279"
+
+# get data from geo
+data_list <- parse_geo(dest_dir = data_dir, gse_id = gse_accession, transpose = TRUE, save = TRUE)
+```
+
+# Process data
+## Extract metadata and merge with methylation data
+```{r process data}
+# extract relevant metadata
+metadata <- data_list[[2]] %>%
+  select(
+    sample_id = geo_accession,
+    age = contains("age"),
+    ethnicity = contains("ethnicity"),
+    sex = contains("gender")
+  ) %>%
+  mutate(age = as.numeric(age))
+
+# add sample id to methylation df
+expr40279_df <- data_list[[1]]
+expr40279_df$sample_id <- rownames(expr40279_df)
+
+# merge methylation data with metadata
+merged40279 <- inner_join(expr40279_df, metadata, by = "sample_id")
+
+```
+
+## Split data into train and test sets
+```{r split data}
+train_test_list <- split_train_test(
+  dataset = merged40279, 
+  train_frac = 0.75, 
+  stratifier = "age", 
+  dest_dir = data_dir, 
+  save = TRUE)
+train_set <- train_test_list[[1]]
+test_set <- train_test_list[[2]]
+```
+
+## check data distribution
+```{r}
+# Check age distribution
+summary(train_set$age)
+summary(test_set$age)
+
+# Check gender balance
+table(train_set$sex)
+table(test_set$sex)
+```
+
+# Train model
+```{r}
+# set parameters
+alpha = 0.5
+n_cores <- parallel::detectCores() - 1
+n_fold = 10
+iterations = 500
+model_params <- list(
+  n_cores = n_cores,
+  alpha = alpha,
+  n_fold = n_fold,
+  iterations = iterations
+)
+
+# predictor
+X_train <- train_set %>%
+  select(-sample_id, -age, -ethnicity, -sex)
+# prediction target
+y_train <- train_set$age
+```
+
+```{r}
+# save X_train, y_train, and parameters
+saveRDS(X_train, file = file.path(data_dir, "X_train.rds"))
+saveRDS(y_train, file = file.path(data_dir, "y_train.rds"))
+saveRDS(model_params, file = file.path(data_dir, "model_params.rds"))
+```
+
+## Cross-validation
+```{bash}
+qsub cv.sh
+
+```
+
+```{r}
+cv_model <- readRDS(file.path(data_dir, "cv_model.rds"))
+plot(cv_model)
+lambda_min <- cv_model$lambda.min
+saveRDS(lambda_min, file = file.path(data_dir, "lambda_min.rds"))
+```
+
+
+
+## Bootstrap
+```{bash}
+qsub bootstrap.sh
+```
+
+## 
+
+
+# Evaluate model
+
+
+
+
+
+
+
+
+
+
+
+
+
+
