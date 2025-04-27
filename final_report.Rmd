@@ -2,10 +2,12 @@
 title: "Building an epigenetic clock based on methods and data from Hannum et al"
 output: html_document
 date: "`r Sys.Date()`"
+Author: "Solomon Lalala"
 ---
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(knitr)
 source("scripts/helper.R")
 ```
 
@@ -23,8 +25,12 @@ data_list <- parse_geo(dest_dir = data_dir, gse_id = gse_accession, transpose = 
 # Process data
 ## Extract metadata and merge with methylation data
 ```{r merge data}
+# load data
+expr40279_df <- readRDS(file.path(data_dir, "GSE40279_expr_df.rds"))
+metadata40279 <- readRDS(file.path(data_dir, "GSE40279_pheno_df.rds"))
+
 # extract relevant metadata
-metadata <- data_list[[2]] %>%
+metadata <- metadata40279 %>%
   select(
     sample_id = geo_accession,
     age = contains("age"),
@@ -34,12 +40,39 @@ metadata <- data_list[[2]] %>%
   mutate(age = as.numeric(age))
 
 # add sample id to methylation df
-expr40279_df <- data_list[[1]]
 expr40279_df$sample_id <- rownames(expr40279_df)
 
 # merge methylation data with metadata
 merged40279 <- inner_join(expr40279_df, metadata, by = "sample_id")
 
+saveRDS(merged40279, file = file.path(data_dir, "merged40279.rds"))
+```
+
+## visualize data
+```{r}
+view_merged40279 <- merged40279 %>%
+  select(
+    sample_id,
+    age,
+    ethnicity,
+    sex,
+    everything()  # Then all other columns (CpGs)
+  ) %>%
+  slice(1:6) %>%
+  select(1:10)
+view_merged40279
+knitr::kable(view_merged40279, format = "html", caption = "First 6 samples of merged data")
+```
+
+
+```{r}
+p_age_merged40279 <- plot_age_distribution(data = merged40279, dest_dir = fig_dir, save = TRUE)
+p_age_merged40279
+```
+
+
+```{r}
+table(merged40279$sex)
 ```
 
 ## Split data into train and test sets
@@ -57,10 +90,19 @@ test_set <- train_test_list[[2]]
 ## check subset data distribution
 ```{r}
 # Check age distribution
-summary(train_set$age)
-summary(test_set$age)
+p_age_train <- plot_age_distribution(data = train_set, dest_dir = fig_dir, save = TRUE)
+p_age_train
+```
 
-# Check gender balance
+
+```{r}
+p_age_test <- plot_age_distribution(data = test_set, dest_dir = fig_dir, save = TRUE)
+p_age_test
+```
+
+
+```{r}
+# Check gender
 table(train_set$sex)
 table(test_set$sex)
 ```
@@ -174,7 +216,6 @@ evaluation <- evaluate_model(
 eval_res <- evaluation$results_df
 eval_metrics <- evaluation$metrics
 ```
-
 
 ```{r}
 plot_eval <- plot_evaluation(

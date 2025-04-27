@@ -38,7 +38,7 @@ parse_geo <- function(dest_dir, gse_id, transpose = TRUE, save = TRUE) {
       dir.create(dest_dir, recursive = TRUE)
     }
     
-    # save the expression df and phenotype data frame to CSV files
+    # save the expression df and phenotype df
     saveRDS(expr_df, file.path(dest_dir, paste0(gse_id, "_expr_df.rds")))
     saveRDS(pheno_df, file.path(dest_dir, paste0(gse_id, "_pheno_df.rds")))
   }
@@ -68,19 +68,26 @@ split_train_test <- function(
   test_data <- anti_join(dataset, train_data, by = "sample_id") %>%
     select(-bin)
   
+  data_list <- list(train_data, test_data)
+  
   if (save) {
     # create output directory if it doesn't exist
     if (!dir.exists(dest_dir)) {
       dir.create(dest_dir, recursive = TRUE)
     }
     
-    saveRDS(train_data, file.path(dest_dir, "train_set.rds"))
-    saveRDS(test_data, file.path(dest_dir, "test_set.rds"))
+    data_name <- deparse(substitute(dataset))
+    filename_train <- paste0(data_name, "_train_set.rds")
+    filename_test <- paste0(data_name, "_test_set.rds")
+    
+    saveRDS(train_data, file.path(dest_dir, filename_train))
+    saveRDS(test_data, file.path(dest_dir, filename_test))
   }
   
-  return(list(train_data, test_data))
+  return(data_list)
   
 }
+
 
 select_feature <- function(bootstrap_results, threshold, dest_dir) {
   feature_summary <- bootstrap_results %>%
@@ -93,15 +100,24 @@ select_feature <- function(bootstrap_results, threshold, dest_dir) {
     filter(FreqRatio > threshold) %>%
     pull(CpG)
   
-  saveRDS(
-    selected_feature,
-    file.path(dest_dir, "selected_feature.rds")
-  )
+  if (save) {
+    if (!dir.exists(dest_dir)) {
+      dir.create(dest_dir, recursive = TRUE)
+    }
+    
+    data_name <- deparse(substitute(bootstrap_results))
+    filename <- paste0(data_name, "_selected_feature.rds")
+    
+    saveRDS(
+      selected_feature,
+      file.path(dest_dir, filename)
+    )
+  }
   
   return(selected_feature)
 }
 
-evaluate_model <- function(model, X_test, y_test, dest_dir) {
+evaluate_model <- function(model, X_test, y_test, dest_dir, save = TRUE) {
   
   y_pred <- predict(model, newx = as.matrix(X_test), s = lambda_min)
   y_pred <- as.numeric(y_pred)
@@ -131,31 +147,70 @@ evaluate_model <- function(model, X_test, y_test, dest_dir) {
     rmse = rmse
   )
   
-  # save the results and metrics
-  if (!dir.exists(dest_dir)) {
-    dir.create(dest_dir, recursive = TRUE)
-  }
-  saveRDS(
-    results_df,
-    file.path(dest_dir, "results_df.rds")
-  )
-  saveRDS(
-    metrics,
-    file.path(dest_dir, "evaluation_metrics.rds")
-  )
-  
   eval_list <- list(
     results_df = results_df,
     metrics = metrics
   )
   
+  # save the results and metrics
+  if (save) {
+    if (!dir.exists(dest_dir)) {
+      dir.create(dest_dir, recursive = TRUE)
+    }
+    
+    data_name <- deparse(substitute(model))
+    filename <- paste0(data_name, "_res_and_eval.rds")
+    
+    saveRDS(
+      eval_list,
+      file.path(dest_dir, filename)
+    )
+  }
+  
   # return 
   return(eval_list)
 }
 
+
+plot_age_distribution <- function(
+    data, dest_dir, save = TRUE){
+  
+  
+  
+  # plot
+  p_age <- ggplot(data = data, mapping = aes(x = age)) +
+    geom_histogram(binwidth = 5, fill = "black", color = "white") +
+    labs(title = "Distribution of Age",
+         x = "Age (years)",
+         y = "Count (# of sample)") +
+    scale_x_continuous(breaks = seq(20, 100, by = 20)) +
+    scale_y_continuous(breaks = seq(0, 100, by = 20)) +
+    theme_minimal()
+  
+  # save the plot
+  if (save) {
+    if (!dir.exists(dest_dir)) {
+      dir.create(dest_dir, recursive = TRUE)
+    }
+    # --- Capture the name of the data input
+    data_name <- deparse(substitute(data))
+    filename <- paste0(data_name, "_age_distribution_plot.png")
+    ggsave(
+      filename = filename,
+      plot = p_age, 
+      path = dest_dir
+    )
+  }
+  
+  return(p_age)
+}
+
+
 plot_evaluation <- function(
-    results, metrics, dest_dir
+    results, metrics, dest_dir, save = TRUE
 ){
+  
+  
   
   r <- metrics$r
   rmse <- metrics$rmse
@@ -187,13 +242,23 @@ plot_evaluation <- function(
     scale_y_continuous(limits = c(0, 100)) + 
     theme_minimal()
   
-  ggsave(
-    filename = "age_prediction_plot.png",
-    plot = p, 
-    path = dest_dir
-    )
+  
+  # save the plot
+  if (save) {
+    if (!dir.exists(dest_dir)) {
+      dir.create(dest_dir, recursive = TRUE)
+    }
+    # --- Capture the name of the data input
+    data_name <- deparse(substitute(results))
+    filename <- paste0(data_name, "_age_prediction_plot.png")
+    ggsave(
+      filename = filename,
+      plot = p, 
+      path = dest_dir
+    )}
   
   return(p)
+  
 }
 
 
