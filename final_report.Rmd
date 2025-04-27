@@ -53,6 +53,15 @@ train_set <- train_test_list[[1]]
 test_set <- train_test_list[[2]]
 ```
 
+
+```{r split data}
+# predictor
+X_train <- train_set %>%
+  select(-sample_id, -age, -ethnicity, -sex)
+# prediction target
+y_train <- train_set$age
+```
+
 ## check data distribution
 ```{r}
 # Check age distribution
@@ -77,12 +86,6 @@ model_params <- list(
   n_fold = n_fold,
   iterations = iterations
 )
-
-# predictor
-X_train <- train_set %>%
-  select(-sample_id, -age, -ethnicity, -sex)
-# prediction target
-y_train <- train_set$age
 ```
 
 ```{r}
