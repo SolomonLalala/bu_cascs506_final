@@ -23,4 +23,4 @@ echo "Current date and time: $(date)"
 echo "R version: $(R --version)"
 
 # --- Run R script ---
-Rscript cv.R
+Rscript scripts/cv.R

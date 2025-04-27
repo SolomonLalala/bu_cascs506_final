@@ -26,4 +26,4 @@ echo "R version: $(R --version)"
 echo "=========================================================="
 
 # --- Run R script ---
-Rscript bootstrap.R
+Rscript scripts/bootstrap.R
