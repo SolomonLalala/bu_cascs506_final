@@ -1,8 +1,12 @@
 # bu_cascs506_final
 
 ## Final report
-
-[Click here to view the final report](https://SolomonLalala.github.io/bu_cascs506_final/final_report.html)
+[Click here to view the final report html](https://SolomonLalala.github.io/bu_cascs506_final/final_report.html)
+Setup
+1.  Install R (4.4.3) and Rstudio. 
+2.  Clone the repository. 
+3.  Open final_report.Rmd in Rstudio. 
+4. Run the codes
 
 ## Midterm report
 
@@ -36,9 +40,9 @@ midterm report video record: <https://youtu.be/AajjHc2R3Zk> I set this to be pri
 
   - #### DNA methylation (beta values): continuous variables between 0 and 1, representing the methylation level of a CpG site
 
-    - #### Age: 19 to 101
+  - #### Age: 19 to 101
 
-    - #### Covariates (sex, ethnicity, body mass index, etc)
+  - #### Covariates (sex, ethnicity, body mass index, etc)
 
 ## Data Visualization
 
