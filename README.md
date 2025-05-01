@@ -2,7 +2,7 @@
 
 ## Final report
 
-[Click here to view the final report](./final_report.html)
+[Click here to view the final report](https://SolomonLalala.github.io/bu_cascs506_final/final_report.html)
 
 ## Midterm report
 
