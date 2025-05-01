@@ -1,7 +1,7 @@
 # bu_cascs506_final
 
 ## Final report
-[Click here to view the final report html](https://SolomonLalala.github.io/bu_cascs506_final/final_report.html)
+[Click here to view the final report html](https://SolomonLalala.github.io/bu_cascs506_final/final_report_model_2.html)
 Setup
 1.  Install R (4.4.3) and Rstudio. 
 2.  Clone the repository. 
