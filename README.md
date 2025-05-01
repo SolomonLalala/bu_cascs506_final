@@ -13,120 +13,68 @@ midterm report video record: <https://youtu.be/AajjHc2R3Zk> I set this to be pri
 ###### Aging is complex biological process with decline in physiology and increased vulnerability to diseases. Developing intervention on aging and aging related diseases involves measuring biological age and aging rate at the molecular level. Aging clocks are machine learning models trained with molecular features such as genes or proteins to estimate an individual's age. Epigenetic aging clock build upon DNA methylation pattern that changes with aging. Epigenetic aging clock is robust in predicting age across various tissue types and can measure epigenetic changes shared between aging and many cancers. This project uses existing methods developed by Hannum et al. to train an epigenetic aging clock and aims to predict the age and aging rate of individuals using public available DNA methylation data.
 
 ## Goals
-
--   
-
-    ###### Predict the age and aging rate of individuals based on DNA methylation data.
+- ###### Predict the age and aging rate of individuals based on DNA methylation data.
 
 ## Data Collection
 
 ###### DNA methylation data can be downloaded from from Gene Expression Omnibus [GEO](https://www.ncbi.nlm.nih.gov/geo/).
 
--   
+- ### **Primary dataset for training and testing the model**:
+    - #### [**GSE40279**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE40279): Download Series Matrix File using `GEOquery`
 
-    ### **Primary dataset for training and testing the model**:
+- ### **Additional datasets or databases considered for testing model**:
 
-    -   
+    - #### [**GSE87571**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE87571)
 
-        #### [**GSE40279**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE40279): Download Series Matrix File using `GEOquery`
+    - #### [**GSE55763**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE55763)
 
--   
+    - #### [**GSE167998**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE167998)
 
-    ### **Additional datasets or databases considered for testing model**:
+    - #### **The Cancer Genome Atlas Program ([TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga))**
 
-    -   
+- ### **Features**:
 
-        #### [**GSE87571**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE87571)
+  - #### DNA methylation (beta values): continuous variables between 0 and 1, representing the methylation level of a CpG site
 
-    -   
+    - #### Age: 19 to 101
 
-        #### [**GSE55763**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE55763)
-
-    -   
-
-        #### [**GSE167998**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE167998)
-
-    -   
-
-        #### **The Cancer Genome Atlas Program ([TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga))**
-
--   
-
-    ### **Features**:
-
-    -   
-
-        #### DNA methylation (beta values): continuous variables between 0 and 1, representing the methylation level of a CpG site
-
-    -   
-
-        #### Age: 19 to 101
-
-    -   
-
-        #### Covariates (sex, ethnicity, body mass index, etc)
+    - #### Covariates (sex, ethnicity, body mass index, etc)
 
 ## Data Visualization
 
--   
+- ### A histogram of the age distribution for samples
 
-    ### A histogram of the age distribution for samples
-
--   
-
-    ### A heat map of the age-related DNA methylation across age
+- ### A heat map of the age-related DNA methylation across age
 
 ## Data Processing
 
--   
+- ### Parse relevant metadata (age, sex, ethnicity, etc) and DNA methylation matrix from the series matrix file
 
-    ### Parse relevant metadata (age, sex, ethnicity, etc) and DNA methylation matrix from the series matrix file
+- ### Merge metadata with DNA methylation matrix
 
--   
-
-    ### Merge metadata with DNA methylation matrix
-
--   
-
-    ### Stratify training/testing split (75/25) using age and gender
+- ### Stratify training/testing split (75/25) using age and gender
 
 ## Modelling
 
--   
+- ### Apply Elastic Net regression, a penalized regression that have those DNA methylation markers contributing less to prediction excluded by having their coefficients to or close to zero, thus reduce the number of variable
 
-    ### Apply Elastic Net regression, a penalized regression that have those DNA methylation markers contributing less to prediction excluded by having their coefficients to or close to zero, thus reduce the number of variable
+- ### Use 10-fold crossvalidation to select optimal lambda, the regularization parameter
 
--   
+- ### Perform bootstrap 500 times to select DNA methylation markersrobustly associated with age in the dataset
 
-    ### Use 10-fold crossvalidation to select optimal lambda, the regularization parameter
-
--   
-
-    ### Perform bootstrap 500 times to select DNA methylation markersrobustly associated with age in the dataset
-
--   
-
-    ### Train final model using optimal lambda and selected DNA methylation markers
+- ### Train final model using optimal lambda and selected DNA methylation markers
 
 ## Testing
 
--   
+- ### 656 samples from [**GSE40279**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE40279) are splited into training (75%) and testing (25%) set by stratified random sampling to preserve the distribution of age and sex
 
-    ### 656 samples from [**GSE40279**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE40279) are splited into training (75%) and testing (25%) set by stratified random sampling to preserve the distribution of age and sex
+- ### Apply final model on the testing set
 
--   
-
-    ### Apply final model on the testing set
-
--   
-
-    ### Calculate R-squared and RMSE to evaluate the model performance
+- ### Calculate R-squared and RMSE to evaluate the model performance
 
 ## Priliminary Results
 
--   
-
-    ### An elastic net regression model was trained with lambda = 0.4867 and 23 DNA methylation markers. The model predicted the age of individuals with an R-squared of 0.827 and RMSE of 6.04 years.
+- ### An elastic net regression model was trained with lambda = 0.4867 and 23 DNA methylation markers. The model predicted the age of individuals with an R-squared of 0.827 and RMSE of 6.04 years.
 
 ## Reference
 
