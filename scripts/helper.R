@@ -53,11 +53,74 @@ parse_geo <- function(dest_dir, gse_id, transpose = TRUE, save = TRUE) {
   return(list(expr_df, pheno_df))
 }
 
+#' Extract metadata and merge it with expression matrix
+#'
+#' @param gse_id GEO accession ID (e.g., "GSE40279")
+#' @param dest_dir Directory where parsed RDS files are stored and merged result will be saved
+#' @param save Logical; whether to save the merged dataset as RDS
+#' @return A dataframe combining methylation expression and sample metadata
+
+extract_merge <- function(gse_id, dest_dir, save = TRUE) {
+  # load data
+  expr <- readRDS(file.path(dest_dir, paste0(gse_id, "_expr_df.rds")))
+  meta <- readRDS(file.path(dest_dir, paste0(gse_id, "_pheno_df.rds")))
+  
+  # extract relevant feature in metadata
+  meta <- meta %>%
+    select(
+      sample_id = geo_accession,
+      age = contains("age"),
+      ethnicity = contains("ethnicity"),
+      sex = contains("gender")
+    ) %>%
+    mutate(age = as.numeric(age))
+  
+  # add sample id to the expression dataframe
+  expr$sample_id <- rownames(expr)
+  
+  # merge expression dataframe with meta
+  merged <- inner_join(expr, meta, by = "sample_id")
+  
+  if (save) {
+    # create output directory if it doesn't exist
+    if (!dir.exists(dest_dir)) {
+      dir.create(dest_dir, recursive = TRUE)
+    }
+    
+    saveRDS(merged, file = file.path(dest_dir, paste0(gse_id, "merged.rds")))
+  }
+  
+  return(merged)
+}
+
+
+#' View a subset of the merged dataset
+#' @param path Path to the RDS file that contains the merged dataset
+#' @return A df with the first 6 samples and up to 10 columns
+view_merged <- function(path) {
+  
+  # read in the data
+  merged <- readRDS(path)
+  
+  merged_subset <- merged %>%
+    select(
+      sample_id,
+      age,
+      ethnicity,
+      sex,
+      everything()  # Then all other columns (CpGs)
+    ) %>%
+    slice(1:6) %>%
+    select(1:10)
+  
+  return(merged_subset)
+}
+
 
 #' Stratified train-test split
 #' @param dataset Input dataframe
 #' @param train_frac Fraction of data to include in the training set
-#' @param stratifier List of column names for stratification (e.g., age)
+#' @param stratifier string of column name for stratification (e.g., age)
 #' @param dest_dir Directory to save output files
 #' @param save Logical, whether to save split datasets
 #' @return A list containing train and test datasets
@@ -67,10 +130,8 @@ split_train_test <- function(
 {
   set.seed(123)
   
-  stratifier1 = stratifier[[1]]
-  
   dataset <- dataset %>%
-    mutate(bin = ntile(.data[[stratifier1]], 4))
+    mutate(bin = ntile(.data[[stratifier]], 4))
   
   train_data <- dataset %>%
     group_by(bin, sex) %>%
@@ -89,12 +150,9 @@ split_train_test <- function(
       dir.create(dest_dir, recursive = TRUE)
     }
     
-    data_name <- deparse(substitute(dataset))
-    filename_train <- paste0(data_name, "_train_set.rds")
-    filename_test <- paste0(data_name, "_test_set.rds")
     
-    saveRDS(train_data, file.path(dest_dir, filename_train))
-    saveRDS(test_data, file.path(dest_dir, filename_test))
+    saveRDS(train_data, file.path(dest_dir, "train_set.rds"))
+    saveRDS(test_data, file.path(dest_dir, "test_set.rds"))
   }
   
   return(data_list)
@@ -196,6 +254,7 @@ evaluate_model <- function(model, X_test, y_test, dest_dir, save = TRUE) {
 }
 
 
+
 #' Plot age distribution histogram
 #' @param data Dataframe with an "age" column
 #' @param dest_dir Directory to save the plot
@@ -203,6 +262,7 @@ evaluate_model <- function(model, X_test, y_test, dest_dir, save = TRUE) {
 #' @return ggplot object
 plot_age_distribution <- function(
     data, dest_dir, save = TRUE){
+  
   # plot
   p_age <- ggplot(data = data, mapping = aes(x = age)) +
     geom_histogram(binwidth = 5, fill = "black", color = "white") +
