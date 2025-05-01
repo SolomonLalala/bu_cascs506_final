@@ -7,21 +7,22 @@ Author: "Solomon Lalala"
 
 # Setup
 
-1.  Install R (4.4.3) and Rstudio.
-2.  Clone the repository.
-3.  Open final_report.Rmd in Rstudio.
-4.  Install the following packages "tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel".
+1. Install the following packages "tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel".
 
 ```{r Install packages, eval = FALSE}
 install.packages(c("tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel"))
 ```
 
-5.  Run the following codes
+2. Run the following codes
 
 ## Import scripts
-```{r setup, eval = FALSE}
+
+```{r setup, echo=TRUE, message=FALSE, warning=FALSE}
+# Helper functions
 source("scripts/helper.R")
 ```
+
+## Set directory and dataset id
 
 ```{r set directory and dataset id}
 data_dir <- "data" 
@@ -31,20 +32,30 @@ gse_accession <- "GSE40279"
 
 # Collect data
 
+-   Parse relevant metadata and DNA methylation matrix from GEO database.
+-   The metadata and DNA methylation matrix are saved in data_dir, and a list containing the two dataframe is returned.
+
 ```{r parse data, eval = FALSE}
-# get data from geo
+# parse data from the GEO database
 data_list <- parse_geo(dest_dir = data_dir, gse_id = gse_accession, transpose = TRUE, save = TRUE)
 ```
 
 # Process data
 
-## Extract metadata and merge with methylation data
+## Extract metadata and merge with DNA methylation data
+
+-   Relevant metadata is extracted from the metadata dataframe and merged with the transposed DNA methylation matrix.
 
 ```{r merge data}
 merged <- extract_merge(gse_id = gse_accession, dest_dir = data_dir, save = TRUE)
 ```
 
-## Viewing the data ()
+## Viewing the data
+
+-   sample_id: GSM id for each sample. Each sample is collected from the whole blood of an individual.
+-   age (target): The age of the individual. It is the prediction target.
+-   CpG marker (predictor): Those columns starting with cg are CpG marker. The values are continuous variables between 0 and 1, representing the frequency of the methylation of the CpG marker across the population of the blood cells of the given individual.
+-   Ethnicity and sex were merged but excluded from model training.
 
 ```{r view data}
 dim(merged)
@@ -52,7 +63,9 @@ dim(merged)
 view_merged(file.path(data_dir, paste0(gse_accession, "merged.rds")))
 ```
 
-### view age distribution
+### View age distribution of merged data
+
+The majority of the samples are between 50 and 80 years old.
 
 ```{r age distribution}
 p_age_merged <- plot_age_distribution(
@@ -62,13 +75,17 @@ p_age_merged <- plot_age_distribution(
 p_age_merged
 ```
 
-### view sex distribution
+### View sex distribution of merged data
+
+-   Sex is not exactly equal in the merged data with 20 more female than male.
 
 ```{r sex distribution}
 table(merged$sex)
 ```
 
-## Split data into train and test sets
+## Split merged data into train and test sets
+
+-   Merged data is split into train (0.75) and test (0.25) sets using stratified sampling by age and gender.
 
 ```{r split train and test}
 train_test_list <- split_train_test(
@@ -81,7 +98,7 @@ train_set <- train_test_list[[1]]
 test_set <- train_test_list[[2]]
 ```
 
-### check subset data distribution
+### Check subset data distribution
 
 ```{r subset distribution}
 # Check age distribution
@@ -95,17 +112,19 @@ table(test_set$sex)
 
 ## split data into predictor and target
 
-```{r split predictor and target}
+-   The predictor set is the DNA methylation matrix, and the target set is the age of the individual.
+
+```{r split predictor and target, eval = FALSE}
 X_train <- train_set %>%
-  select(-sample_id, -age, -ethnicity, -sex) # predictor
-y_train <- train_set$age # prediction target
+  select(-sample_id, -age, -ethnicity, -sex) 
+y_train <- train_set$age
 
 X_test <- test_set %>%
   select(-sample_id, -age, -ethnicity, -sex)
 y_test <- test_set$age
 ```
 
-```{r save splited data}
+```{r save splited data, eval = FALSE}
 saveRDS(X_train, file = file.path(data_dir, "X_train.rds"))
 saveRDS(y_train, file = file.path(data_dir, "y_train.rds"))
 saveRDS(X_test, file = file.path(data_dir, "X_test.rds"))
@@ -132,7 +151,15 @@ saveRDS(X_test_standardized, file = file.path(data_dir, "X_test_standardized.rds
 
 # Train model
 
+- The model is trained using Elastic Net regression, a combination lasso regression and ridge regression. Lasso regression adds a penalty lambda proportional to the absolute value of the coefficients beta, which shrinks some coefficients to zero to eliminate less important features, while ridge regression adds a penalty lambda proportional to the square of the coefficients beta, which shrinks coefficients towards zero and make the features contribute less to prediction.
+- In the DNA methylation profiles, the number of CpG markers (predictors) is much more than the number of samples, and elastic net regression can reduce the number of CpG markers and select those markers contributing more to age prediction.
+- 493 samples were used to train the model. 
 ## Set parameters
+
+-   Elastic net regression introduces a hyperparameter alpha to control the weight of lasso regression (alpha = 1) and ridge regression (alpha = 0).
+-   n_cores is the number of cores to use for parallel processing.
+-   n_fold is the number of folds for cross-validation.
+-   iterations is the number of iterations for the bootstrap sampling.
 
 ```{r set parameters}
 alpha = 0.5
@@ -155,6 +182,8 @@ saveRDS(model_params, file = file.path(data_dir, "model_params.rds"))
 
 ### Cross-validation
 
+-   Cross-validation is used to find the optimal parameter lambda, which controls the level of penalty applied to the coefficients.
+
 ```{r cv in r, eval = FALSE}
 # Run locally
 Rscript -e "source('scripts/cv.R')"
@@ -166,6 +195,8 @@ qsub scripts/cv.sh
 ```
 
 ### Find lambda
+
+-   y axis is the mean squared error (MSE) of the model, and x axis is the log of lambda. The top row shows the number of non-zero coefficients. The dash vertical line on the left shows the optimal lambda (lambda.min), and the dash vertical line on the right shows the lambda that gives one standard error (lambda.1se).
 
 ```{r find lambda}
 cv_model <- readRDS(file.path(data_dir, "cv_model.rds"))
@@ -188,7 +219,7 @@ saveRDS(lambda_min, file = file.path(data_dir, "lambda_min.rds"))
 ## Select feature
 
 ### Bootstrap
-
+- For feature selection, the train dataset was resampled with replacement 500 times, and a model was built for each bootstrap.
 ```{bash Bootstrap job, eval = FALSE}
 # Submit a job to SCC. You need to have access to SCC and set up the bash script
 qsub scripts/bootstrap.sh
@@ -200,7 +231,7 @@ Rscript -e "source('scripts/bootstrap.R')"
 ```
 
 ### Select feature
-
+- CpG markers that were present in more than half of all bootstraps were selected to train the final model. 
 ```{r Select feature}
 bootstrap_res <- readRDS(file.path(data_dir, "bootstrap_results.rds"))
 selected_feature <- select_feature(
@@ -210,31 +241,42 @@ selected_feature <- select_feature(
   save = TRUE)
 ```
 
-#### view selected feature
-
+#### View selected feature
+- 48 CpG markers were selected.
 ```{r view selected feature}
 selected_feature
 ```
 
 ## Train final model
 
-```{r import data, echo = FALSE}
+### Load data
+```{r load data for final model}
+# Load data
 X_train_standardized <- readRDS(file.path(data_dir, "X_train_standardized.rds"))
 y_train <- readRDS(file.path(data_dir, "y_train.rds"))
 X_test_standardized <- readRDS(file.path(data_dir, "X_test_standardized.rds"))
 y_test <- readRDS(file.path(data_dir, "y_test.rds"))
 ```
 
+### Select features in training data
+```{r}
+# Select features in training data and testing data
+X_train_standardized_final <- X_train_standardized[, selected_feature]
+X_test_standardized_final <- X_test_standardized[, selected_feature]
+```
+
+### Fit model
+- alpha = 0.5, lambda = 0.4868
 ```{r train final model}
 set.seed(123)
 final_model <- glmnet(
-    X_train_standardized, 
+    X_train_standardized_final, 
     y_train, 
     alpha = alpha, 
     lambda = lambda_min, 
-    type.measure = "mse",
-    family = "gaussian",
-    standardize = FALSE)
+    type.measure = "mse", 
+    family = "gaussian", 
+    standardize = FALSE) 
 ```
 
 ```{r save final model, eval = FALSE}
@@ -242,29 +284,30 @@ saveRDS(final_model, file = file.path(data_dir, "final_model.rds"))
 ```
 
 # Evaluate model
-
+- 163 samples were used to evaluate the model. 
+- The correlation coeffcient (r) and the root mean squared error (rmse) were calculated. 
 ```{r evaluate model}
 evaluation <- evaluate_model(
   model = final_model, 
-  X_test = X_test_standardized, 
+  X_test = X_test_standardized_final, 
   y_test = y_test, 
   dest_dir = data_dir)
 ```
 
+## Visualize evaluation results
+- The predicted age is plotted against the actual age. The red line is the line of best fit (predicted age = actual age). 
+- r is the correlation coefficient between actual age and predicted age. - The model is considered highly accurate when r >= 0.8 on a large independent testing set (n = 62 if r = 0.9) with a broad range of chronological ages ranging from 20 to 100 years. 
 ```{r view evaluation}
 eval_res <- evaluation$results_df
 eval_metrics <- evaluation$metrics
-```
 
-## Visualize evaluation results
-
-```{r}
 plot_eval <- plot_evaluation(
   results = eval_res, 
   metrics = eval_metrics, 
   dest_dir = fig_dir)
 plot_eval
 ```
+
 
 # Reference
 
