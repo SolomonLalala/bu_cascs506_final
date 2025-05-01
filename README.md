@@ -1,4 +1,9 @@
-# bu_cascs506_final
+# bu_cascs506_final 
+
+## Final report
+
+
+## Midterm report
 midterm report video record: https://youtu.be/AajjHc2R3Zk
 I set this to be private and shareed with all staff. Invitees need sign in to their Google Account (bu email) to view the private video.
 
