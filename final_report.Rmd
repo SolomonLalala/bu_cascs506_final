@@ -5,78 +5,74 @@ date: "`r Sys.Date()`"
 Author: "Solomon Lalala"
 ---
 
-```{r setup, include=FALSE}
+# Setup
+
+1.  Install R (4.4.3) and Rstudio.
+2.  Clone the repository.
+3.  Open final_report.Rmd in Rstudio.
+4.  Install the following packages "tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel".
+
+```{r Install packages, eval = FALSE}
+install.packages(c("tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel"))
+```
+
+5.  Run the following codes
+
+## Import scripts
+```{r setup, eval = FALSE}
 source("scripts/helper.R")
 ```
 
-# Collect data
-```{r parse data from geo}
-# set parameters
-data_dir <- "data"
-fig_dir <- "figures"
-gse_accession <- "GSE40279"
+```{r set directory and dataset id}
+data_dir <- "data" 
+fig_dir <- "figures" 
+gse_accession <- "GSE40279" 
+```
 
+# Collect data
+
+```{r parse data, eval = FALSE}
 # get data from geo
 data_list <- parse_geo(dest_dir = data_dir, gse_id = gse_accession, transpose = TRUE, save = TRUE)
 ```
 
 # Process data
+
 ## Extract metadata and merge with methylation data
+
 ```{r merge data}
-# load data
-expr40279_df <- readRDS(file.path(data_dir, "GSE40279_expr_df.rds"))
-metadata40279 <- readRDS(file.path(data_dir, "GSE40279_pheno_df.rds"))
-
-# extract relevant metadata
-metadata <- metadata40279 %>%
-  select(
-    sample_id = geo_accession,
-    age = contains("age"),
-    ethnicity = contains("ethnicity"),
-    sex = contains("gender")
-  ) %>%
-  mutate(age = as.numeric(age))
-
-# add sample id to methylation df
-expr40279_df$sample_id <- rownames(expr40279_df)
-
-# merge methylation data with metadata
-merged40279 <- inner_join(expr40279_df, metadata, by = "sample_id")
-
-saveRDS(merged40279, file = file.path(data_dir, "merged40279.rds"))
+merged <- extract_merge(gse_id = gse_accession, dest_dir = data_dir, save = TRUE)
 ```
 
-## visualize full data
-```{r}
-view_merged40279 <- merged40279 %>%
-  select(
-    sample_id,
-    age,
-    ethnicity,
-    sex,
-    everything()  # Then all other columns (CpGs)
-  ) %>%
-  slice(1:6) %>%
-  select(1:10)
-view_merged40279
-knitr::kable(view_merged40279, format = "html", caption = "First 6 samples of merged data")
+## Viewing the data ()
+
+```{r view data}
+dim(merged)
+# select 6 samples and 10 columns
+view_merged(file.path(data_dir, paste0(gse_accession, "merged.rds")))
 ```
 
 ### view age distribution
-```{r}
-p_age_merged40279 <- plot_age_distribution(data = merged40279, dest_dir = fig_dir, save = TRUE)
-p_age_merged40279
+
+```{r age distribution}
+p_age_merged <- plot_age_distribution(
+  data = merged,
+  dest_dir = fig_dir, 
+  save = TRUE)
+p_age_merged
 ```
 
 ### view sex distribution
-```{r}
-table(merged40279$sex)
+
+```{r sex distribution}
+table(merged$sex)
 ```
 
 ## Split data into train and test sets
-```{r split data}
+
+```{r split train and test}
 train_test_list <- split_train_test(
-  dataset = merged40279, 
+  dataset = merged, 
   train_frac = 0.75, 
   stratifier = "age", 
   dest_dir = data_dir, 
@@ -86,7 +82,8 @@ test_set <- train_test_list[[2]]
 ```
 
 ### check subset data distribution
-```{r}
+
+```{r subset distribution}
 # Check age distribution
 p_age_train <- plot_age_distribution(data = train_set, dest_dir = fig_dir, save = TRUE)
 p_age_train
@@ -97,7 +94,8 @@ table(test_set$sex)
 ```
 
 ## split data into predictor and target
-```{r split data}
+
+```{r split predictor and target}
 X_train <- train_set %>%
   select(-sample_id, -age, -ethnicity, -sex) # predictor
 y_train <- train_set$age # prediction target
@@ -107,7 +105,6 @@ X_test <- test_set %>%
 y_test <- test_set$age
 ```
 
-
 ```{r save splited data}
 saveRDS(X_train, file = file.path(data_dir, "X_train.rds"))
 saveRDS(y_train, file = file.path(data_dir, "y_train.rds"))
@@ -116,7 +113,8 @@ saveRDS(y_test, file = file.path(data_dir, "y_test.rds"))
 ```
 
 ## standardize data
-```{r center and scale data}
+
+```{r center and scale data, eval = FALSE}
 # obtain mean and sd
 preProcValues <- preProcess(as.matrix(X_train), method = c("center", "scale"))
 
@@ -125,17 +123,17 @@ X_train_standardized <- predict(preProcValues, as.matrix(X_train))
 X_test_standardized <- predict(preProcValues, as.matrix(X_test))
 ```
 
-
-```{r save standardized data}
+```{r save standardized data, eval = FALSE}
 # save prepro_values and standardized data
 saveRDS(preProcValues, file = file.path(data_dir, "preProcValues.rds"))
 saveRDS(X_train_standardized, file = file.path(data_dir, "X_train_standardized.rds"))
 saveRDS(X_test_standardized, file = file.path(data_dir, "X_test_standardized.rds"))
 ```
 
-
 # Train model
+
 ## Set parameters
+
 ```{r set parameters}
 alpha = 0.5
 n_cores <- parallel::detectCores() - 1
@@ -147,25 +145,39 @@ model_params <- list(
   n_fold = n_fold,
   iterations = iterations
 )
+```
 
+```{r save parameters, eval = FALSE, echo = FALSE}
 saveRDS(model_params, file = file.path(data_dir, "model_params.rds"))
 ```
 
 ## Find optimal parameters
+
 ### Cross-validation
-```{bash}
-qsub scripts/cv.sh
+
+```{r cv in r, eval = FALSE}
+# Run locally
+Rscript -e "source('scripts/cv.R')"
 ```
-```{r}
-# use a r chunck if you want to run locally
-# Rscript -e "source('scripts/cv.R')"
+
+```{bash cv job, eval = FALSE}
+# OR submit a job to SCC. You need to have access to SCC and set up the bash script
+qsub scripts/cv.sh
 ```
 
 ### Find lambda
-```{r}
+
+```{r find lambda}
 cv_model <- readRDS(file.path(data_dir, "cv_model.rds"))
 plot(cv_model)
+```
+
+```{r lambda min}
 lambda_min <- cv_model$lambda.min
+lambda_min
+```
+
+```{r save cv model, eval = FALSE}
 ggsave(
   filename = file.path(fig_dir, "cv_model_lambda.png"),
   plot = plot(cv_model),
@@ -174,28 +186,46 @@ saveRDS(lambda_min, file = file.path(data_dir, "lambda_min.rds"))
 ```
 
 ## Select feature
+
 ### Bootstrap
-```{bash}
+
+```{bash Bootstrap job, eval = FALSE}
+# Submit a job to SCC. You need to have access to SCC and set up the bash script
 qsub scripts/bootstrap.sh
 ```
-```{r}
-# use a r chunck if you want to run locally
-# Rscript -e "source('scripts/bootstrap.R')"
+
+```{r Bootstrap in r, eval = FALSE}
+# OR run locally. would be slow or could crash
+Rscript -e "source('scripts/bootstrap.R')"
 ```
 
+### Select feature
 
-### Select CpGs(feature) 
-```{r}
+```{r Select feature}
 bootstrap_res <- readRDS(file.path(data_dir, "bootstrap_results.rds"))
-cpgs_selected <- select_feature(
+selected_feature <- select_feature(
   bootstrap_results = bootstrap_res, 
   threshold = 0.5,
   dest_dir = data_dir,
   save = TRUE)
 ```
 
+#### view selected feature
+
+```{r view selected feature}
+selected_feature
+```
+
 ## Train final model
-```{r}
+
+```{r import data, echo = FALSE}
+X_train_standardized <- readRDS(file.path(data_dir, "X_train_standardized.rds"))
+y_train <- readRDS(file.path(data_dir, "y_train.rds"))
+X_test_standardized <- readRDS(file.path(data_dir, "X_test_standardized.rds"))
+y_test <- readRDS(file.path(data_dir, "y_test.rds"))
+```
+
+```{r train final model}
 set.seed(123)
 final_model <- glmnet(
     X_train_standardized, 
@@ -205,23 +235,29 @@ final_model <- glmnet(
     type.measure = "mse",
     family = "gaussian",
     standardize = FALSE)
+```
+
+```{r save final model, eval = FALSE}
 saveRDS(final_model, file = file.path(data_dir, "final_model.rds"))
 ```
 
 # Evaluate model
-```{r}
+
+```{r evaluate model}
 evaluation <- evaluate_model(
   model = final_model, 
   X_test = X_test_standardized, 
   y_test = y_test, 
   dest_dir = data_dir)
+```
 
+```{r view evaluation}
 eval_res <- evaluation$results_df
 eval_metrics <- evaluation$metrics
 ```
 
-
 ## Visualize evaluation results
+
 ```{r}
 plot_eval <- plot_evaluation(
   results = eval_res, 
@@ -231,17 +267,7 @@ plot_eval
 ```
 
 # Reference
+
 ```{r session-info}
 sessionInfo()
 ```
-
-
-
-
-
-
-
-
-
-
-
