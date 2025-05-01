@@ -36,9 +36,9 @@ midterm report video record: <https://youtu.be/AajjHc2R3Zk> I set this to be pri
 
   - #### DNA methylation (beta values): continuous variables between 0 and 1, representing the methylation level of a CpG site
 
-    - #### Age: 19 to 101
+  - #### Age: 19 to 101
 
-    - #### Covariates (sex, ethnicity, body mass index, etc)
+  - #### Covariates (sex, ethnicity, body mass index, etc)
 
 ## Data Visualization
 
