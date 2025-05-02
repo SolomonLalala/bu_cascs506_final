@@ -8,3 +8,13 @@
 2.  Clone the repository. 
 - For the full pipeline, open final_report.Rmd and run the codes.
 - For testing, I tried to build a GitHub workflow to run the test.R but failed. Therefore, for testing code, please run: Rscript -e 'install.packages(c("tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel", "testthat")) in bash and then run test.R.
+
+# Reference
+
+###### Anastasiadi D, Piferrer F. 2023. Bioinformatic analysis for age prediction using epigenetic clocks: Application to fisheries management and conservation biology. Front Mar Sci. 10. <doi:10.3389/fmars.2023.1096909>.
+
+###### Farrell CP. A Simple Epigenetic Clock Using Python and SciKit-Learn. Colin P Farrell. <https://colinpfarrell.com/tag-ec-tutorial/>.
+
+###### Hannum G, Guinney J, Zhao L, Zhang L, Hughes G, Sadda S, Klotzle B, Bibikova M, Fan J-B, Gao Y, et al. 2013. Genome-wide Methylation Profiles Reveal Quantitative Views of Human Aging Rates. Mol Cell. 49(2):359–367. <doi:10.1016/j.molcel.2012.10.016>.
+
+###### OpenAI. (2025). ChatGPT (Mar 2025 version). Accessed via <https://chat.openai.com>
