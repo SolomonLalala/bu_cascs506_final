@@ -5,15 +5,23 @@ date: "`r Sys.Date()`"
 Author: "Solomon Lalala"
 ---
 
+# Description
+
+###### Aging is complex biological process with decline in physiology and increased vulnerability to diseases. Developing intervention on aging and aging related diseases involves measuring biological age and aging rate at the molecular level. Aging clocks are machine learning models trained with molecular features such as genes or proteins to estimate an individual's age. Epigenetic aging clock build upon DNA methylation pattern that changes with aging. Epigenetic aging clock is robust in predicting age across various tissue types and can measure epigenetic changes shared between aging and many cancers. This project uses existing methods developed by Hannum et al. to train an epigenetic aging clock and aims to predict the age and aging rate of individuals using public available DNA methylation data.
+
+# Summary
+
+##### An epigenetic clock was trained using elastic net regression with lambda = 0.4868, alpha = 0.5, and 48 CpG markers using 493 samples of DNA methylation data from GSE40279. Evaluated with 163 samples, the model had a correlation coefficient (r) of 0.89 between actual age and predicted age and root mean squared error (rmse) of 6.77 years. Aging rate was calculated by dividing predicated age by actual age. The accuracy of the model is high but is not as good as the Hannum's clock. It would be good to train the model with the whole dataset of 656 samples and benchmark using other datasets.
+
 # Setup
 
-1. Install the following packages "tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel".
+1.  Install the following packages "tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel".
 
 ```{r Install packages, eval = FALSE}
 install.packages(c("tidyverse", "knitr", "caret", "glmnet", "ggplot2", "GEOquery", "foreach", "doParallel"))
 ```
 
-2. Run the following codes
+2.  Run the following codes
 
 ## Import scripts
 
@@ -32,11 +40,10 @@ gse_accession <- "GSE40279"
 
 # Collect data
 
--   Parse relevant metadata and DNA methylation matrix from GEO database.
--   The metadata and DNA methylation matrix are saved in data_dir, and a list containing the two dataframe is returned.
+**Primary dataset for training and testing the model**:[**GSE40279**](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE40279)
 
 ```{r parse data, eval = FALSE}
-# parse data from the GEO database
+# Parse relevant metadata and DNA methylation matrix from GEO database. The metadata and DNA methylation matrix are saved in data_dir, and a list containing the two dataframe is returned.
 data_list <- parse_geo(dest_dir = data_dir, gse_id = gse_accession, transpose = TRUE, save = TRUE)
 ```
 
@@ -96,6 +103,9 @@ train_test_list <- split_train_test(
   save = TRUE)
 train_set <- train_test_list[[1]]
 test_set <- train_test_list[[2]]
+test_meta <- test_set %>%
+  select(sample_id, sex)
+saveRDS(test_meta, file = file.path(data_dir, "test_meta.rds"))
 ```
 
 ### Check subset data distribution
@@ -151,16 +161,20 @@ saveRDS(X_test_standardized, file = file.path(data_dir, "X_test_standardized.rds
 
 # Train model
 
-- The model is trained using Elastic Net regression, a combination lasso regression and ridge regression. Lasso regression adds a penalty lambda proportional to the absolute value of the coefficients beta, which shrinks some coefficients to zero to eliminate less important features, while ridge regression adds a penalty lambda proportional to the square of the coefficients beta, which shrinks coefficients towards zero and make the features contribute less to prediction.
-- In the DNA methylation profiles, the number of CpG markers (predictors) is much more than the number of samples, and elastic net regression can reduce the number of CpG markers and select those markers contributing more to age prediction.
-- 493 samples were used to train the model. 
-## Set parameters
+-   The model is trained using Elastic Net regression, a combination lasso regression and ridge regression. Lasso regression adds a penalty lambda proportional to the absolute value of the coefficients beta, which shrinks some coefficients to zero to eliminate less important features, while ridge regression adds a penalty lambda proportional to the square of the coefficients beta, which shrinks coefficients towards zero and make the features contribute less to prediction.
+
+-   In the DNA methylation profiles, the number of CpG markers (predictors) is much more than the number of samples, and elastic net regression can reduce the number of CpG markers and select those markers contributing more to age prediction.
+
+-   493 samples were used to train the model. 
 
 -   Elastic net regression introduces a hyperparameter alpha to control the weight of lasso regression (alpha = 1) and ridge regression (alpha = 0).
--   n_cores is the number of cores to use for parallel processing.
--   n_fold is the number of folds for cross-validation.
--   iterations is the number of iterations for the bootstrap sampling.
 
+-   n_cores is the number of cores to use for parallel processing.
+
+-   n_fold is the number of folds for cross-validation.
+
+-   iterations is the number of iterations for the bootstrap sampling.
+## Set parameters
 ```{r set parameters}
 alpha = 0.5
 n_cores <- parallel::detectCores() - 1
@@ -219,7 +233,9 @@ saveRDS(lambda_min, file = file.path(data_dir, "lambda_min.rds"))
 ## Select feature
 
 ### Bootstrap
-- For feature selection, the train dataset was resampled with replacement 500 times, and a model was built for each bootstrap.
+
+-   For feature selection, the train dataset was resampled with replacement 500 times, and a model was built for each bootstrap.
+
 ```{bash Bootstrap job, eval = FALSE}
 # Submit a job to SCC. You need to have access to SCC and set up the bash script
 qsub scripts/bootstrap.sh
@@ -231,7 +247,9 @@ Rscript -e "source('scripts/bootstrap.R')"
 ```
 
 ### Select feature
-- CpG markers that were present in more than half of all bootstraps were selected to train the final model. 
+
+-   CpG markers that were present in more than half of all bootstraps were selected to train the final model.
+
 ```{r Select feature}
 bootstrap_res <- readRDS(file.path(data_dir, "bootstrap_results.rds"))
 selected_feature <- select_feature(
@@ -242,7 +260,9 @@ selected_feature <- select_feature(
 ```
 
 #### View selected feature
-- 48 CpG markers were selected.
+
+-   48 CpG markers were selected.
+
 ```{r view selected feature}
 selected_feature
 ```
@@ -250,6 +270,7 @@ selected_feature
 ## Train final model
 
 ### Load data
+
 ```{r load data for final model}
 # Load data
 X_train_standardized <- readRDS(file.path(data_dir, "X_train_standardized.rds"))
@@ -259,6 +280,7 @@ y_test <- readRDS(file.path(data_dir, "y_test.rds"))
 ```
 
 ### Select features in training data
+
 ```{r}
 # Select features in training data and testing data
 X_train_standardized_final <- X_train_standardized[, selected_feature]
@@ -266,7 +288,9 @@ X_test_standardized_final <- X_test_standardized[, selected_feature]
 ```
 
 ### Fit model
-- alpha = 0.5, lambda = 0.4868
+
+-   alpha = 0.5, lambda = 0.4868
+
 ```{r train final model}
 set.seed(123)
 final_model <- glmnet(
@@ -284,8 +308,10 @@ saveRDS(final_model, file = file.path(data_dir, "final_model.rds"))
 ```
 
 # Evaluate model
-- 163 samples were used to evaluate the model. 
-- The correlation coeffcient (r) and the root mean squared error (rmse) were calculated. 
+
+-   163 samples were used to evaluate the model.
+-   The correlation coeffcient (r) and the root mean squared error (rmse) were calculated.
+
 ```{r evaluate model}
 evaluation <- evaluate_model(
   model = final_model, 
@@ -295,8 +321,10 @@ evaluation <- evaluate_model(
 ```
 
 ## Visualize evaluation results
-- The predicted age is plotted against the actual age. The red line is the line of best fit (predicted age = actual age). 
-- r is the correlation coefficient between actual age and predicted age. - The model is considered highly accurate when r >= 0.8 on a large independent testing set (n = 62 if r = 0.9) with a broad range of chronological ages ranging from 20 to 100 years. 
+
+-   The predicted age is plotted against the actual age. The red line is the line of best fit (predicted age = actual age).
+-   r is the correlation coefficient between actual age and predicted age.
+
 ```{r view evaluation}
 eval_res <- evaluation$results_df
 eval_metrics <- evaluation$metrics
@@ -308,8 +336,39 @@ plot_eval <- plot_evaluation(
 plot_eval
 ```
 
+## Calculate aging rate
+
+##### Aging rate was calculated by dividing predicated age by actual age.
+
+```{r}
+eval_res <- eval_res %>%
+  mutate(Aging_Rate = Predicted_Age / Actual_Age) %>%
+  left_join(test_meta, by = c("Sample" = "sample_id")) %>%
+  mutate(sex = recode(sex, "F" = "Female", "M" = "Male"))
+
+amar <- ggplot(eval_res, aes(x = Aging_Rate, color = sex)) +
+  geom_density(size = 1.2) +
+  scale_color_manual(values = c("Female" = "black", "Male" = "red")) +
+  labs(x = "Aging Rate (AMAR)",
+       y = "Density") +
+  theme_classic(base_size = 14) +
+  theme(legend.title = element_blank())
+print(amar)
+ggsave(
+  filename = file.path(fig_dir, "aging_rate.png"),
+  plot = amar
+)
+```
 
 # Reference
+
+###### Anastasiadi D, Piferrer F. 2023. Bioinformatic analysis for age prediction using epigenetic clocks: Application to fisheries management and conservation biology. Front Mar Sci. 10. <doi:10.3389/fmars.2023.1096909>.
+
+###### Farrell CP. A Simple Epigenetic Clock Using Python and SciKit-Learn. Colin P Farrell. <https://colinpfarrell.com/tag-ec-tutorial/>.
+
+###### Hannum G, Guinney J, Zhao L, Zhang L, Hughes G, Sadda S, Klotzle B, Bibikova M, Fan J-B, Gao Y, et al. 2013. Genome-wide Methylation Profiles Reveal Quantitative Views of Human Aging Rates. Mol Cell. 49(2):359–367. <doi:10.1016/j.molcel.2012.10.016>.
+
+###### OpenAI. (2025). ChatGPT (Mar 2025 version). Accessed via <https://chat.openai.com>
 
 ```{r session-info}
 sessionInfo()
